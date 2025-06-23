@@ -1,5 +1,4 @@
 import logging
-# from functools import lru_cache
 from sql.semantic_retriever import SchemaRetriever
 from sql.sql_generator import SQLGenerator
 from sql.query_executor import SafePGExecutor
@@ -10,13 +9,6 @@ logger = logging.getLogger(__name__)
 retriever = SchemaRetriever()
 generator = SQLGenerator()
 executor = SafePGExecutor(db_uri=settings.db.db_uri)
-
-
-# cachear schemas 
-# @lru_cache(maxsize=100)
-# def get_relevant_schemas_cached(query: str) -> list:
-#     """Cachea resultados de recuperación de esquemas para consultas repetidas."""
-#     return retriever.get_relevant_tables(query)
 
 def is_valid_sql(sql: str) -> bool:
     """Valida que el SQL no contenga operaciones peligrosas."""
@@ -38,35 +30,35 @@ def is_valid_sql(sql: str) -> bool:
 
 def full_pipeline(query: str, schema: str) -> str:
     """
-    Pipeline principal de ejecución de consultas.
+    Pipeline principal de ejecución de consultas MULTI-TENANT INTELIGENTE.
     
     Flujo de trabajo:
     1. Validación de schema y tablas
     2. Recuperación de esquemas relevantes
-    3. Expansión de esquemas con relaciones
-    4. Generación de SQL con schema específico
-    5. Ejecución y validación
-    6. Generación de respuesta natural
+    3. Clasificación automática por schema (public vs tenant)
+    4. Verificación inteligente en schemas correctos
+    5. Generación de SQL con prefijos automáticos
+    6. Ejecución y validación
+    7. Generación de respuesta natural
     
     Args:
         query: Consulta en lenguaje natural
-        schema: Schema de la base de datos a consultar (OBLIGATORIO)
+        schema: Schema de la base de datos TENANT a consultar (para tablas específicas del tenant)
     """
     if not schema or schema.strip() == "":
         logger.error("Schema no proporcionado - es obligatorio")
         return "Error: Debe especificar un schema válido."
     
-    logger.info(f"Iniciando pipeline para consulta: '{query}' en schema: '{schema}'")
+    logger.info(f"Iniciando pipeline multi-tenant para consulta: '{query}' en schema tenant: '{schema}'")
     
-    # Fase 0: Validación de schema y tablas
-    logger.info("--- Validando schema y tablas ---")
+    # Fase 0: Validación de schemas disponibles
+    logger.info("--- Validando schemas disponibles ---")
     
-    # Obtener schemas disponibles
     available_schemas = executor.get_available_schemas()
     logger.info(f"Schemas disponibles: {available_schemas}")
     
     if schema not in available_schemas:
-        logger.error(f"Schema '{schema}' no existe en la base de datos")
+        logger.error(f"Schema tenant '{schema}' no existe en la base de datos")
         return f"Error: El schema '{schema}' no existe. Schemas disponibles: {', '.join(available_schemas)}"
     
     # Fase 1: Recuperación de esquemas (100% LLM-DRIVEN)
@@ -74,55 +66,107 @@ def full_pipeline(query: str, schema: str) -> str:
     logger.info("--- Tablas seleccionadas por LLM ---")
     for schema_item in relevant_schemas:
         table_name = schema_item["metadata"].get("table_name", "Desconocida")
-        logger.info(f"Tabla: {table_name}")
+        schema_type = schema_item["metadata"].get("schema", "tenant")
+        logger.info(f"Tabla: {table_name} (schema: {schema_type})")
     
-    # Mostrar que ahora es inteligente, no hardcodeado
-    total_available = len(retriever.schemas)
-    selected_count = len(relevant_schemas)
-    logger.info(f"🤖 Selección LLM: {selected_count}/{total_available} tablas (decisión inteligente del modelo)")
+    # NUEVO: Clasificación automática de tablas por schema
+    logger.info("--- Clasificación automática multi-tenant ---")
+    public_tables = []
+    tenant_tables = []
     
-    # Verificar si las tablas existen en el schema objetivo
-    table_names = [s["metadata"]["table_name"] for s in relevant_schemas]
-    table_check = executor.check_schema_tables(schema, table_names)
+    for schema_item in relevant_schemas:
+        table_name = schema_item["metadata"]["table_name"]
+        schema_type = schema_item["metadata"].get("schema", "tenant")
+        
+        if schema_type == "public":
+            public_tables.append(schema_item)
+            logger.info(f"✅ {table_name} → schema PUBLIC (centralizada)")
+        else:
+            tenant_tables.append(schema_item)
+            logger.info(f"✅ {table_name} → schema TENANT '{schema}' (específica)")
     
-    logger.info(f"Verificación de tablas: {table_check['total_found']}/{table_check['total_requested']} encontradas")
+    logger.info(f"📊 Distribución final: PUBLIC({len(public_tables)}), TENANT({len(tenant_tables)})")
     
-    if table_check["total_found"] == 0:
-        logger.error(f"Ninguna tabla requerida existe en el schema '{schema}'")
-        return f"Error: Las tablas necesarias ({', '.join(table_names)}) no existen en el schema '{schema}'. Tablas disponibles en otros schemas."
+    # NUEVO: Verificación inteligente por schema type
+    logger.info("--- Verificación inteligente multi-schema ---")
+    valid_schemas = []
+    validation_errors = []
     
-    if table_check["missing_tables"]:
-        logger.warning(f"Tablas faltantes en schema '{schema}': {table_check['missing_tables']}")
-        # Filtrar solo las tablas que existen
-        relevant_schemas = [s for s in relevant_schemas if s["metadata"]["table_name"] in table_check["existing_tables"]]
-        logger.info(f"Continuando con {len(relevant_schemas)} tablas disponibles")
+    # Verificar tablas PUBLIC
+    if public_tables:
+        public_table_names = [s["metadata"]["table_name"] for s in public_tables]
+        public_check = executor.check_schema_tables("public", public_table_names)
+        
+        logger.info(f"Verificación PUBLIC: {public_check['total_found']}/{public_check['total_requested']} encontradas")
+        
+        if public_check["missing_tables"]:
+            logger.warning(f"Tablas PUBLIC faltantes: {public_check['missing_tables']}")
+            validation_errors.extend([f"Tabla PUBLIC '{t}' no encontrada" for t in public_check["missing_tables"]])
+        
+        # Añadir tablas públicas válidas
+        for schema_item in public_tables:
+            if schema_item["metadata"]["table_name"] in public_check["existing_tables"]:
+                valid_schemas.append(schema_item)
     
-    # Fase 2: Expansión de contexto (solo si es necesario)
-    if len(relevant_schemas) <= 2:
-        # Para consultas simples, evitar expansión innecesaria
+    # Verificar tablas TENANT
+    if tenant_tables:
+        tenant_table_names = [s["metadata"]["table_name"] for s in tenant_tables]
+        tenant_check = executor.check_schema_tables(schema, tenant_table_names)
+        
+        logger.info(f"Verificación TENANT '{schema}': {tenant_check['total_found']}/{tenant_check['total_requested']} encontradas")
+        
+        if tenant_check["missing_tables"]:
+            logger.warning(f"Tablas TENANT faltantes en '{schema}': {tenant_check['missing_tables']}")
+            validation_errors.extend([f"Tabla TENANT '{t}' no encontrada en schema '{schema}'" for t in tenant_check["missing_tables"]])
+        
+        # Añadir tablas tenant válidas
+        for schema_item in tenant_tables:
+            if schema_item["metadata"]["table_name"] in tenant_check["existing_tables"]:
+                valid_schemas.append(schema_item)
+    
+    # Verificar que tengamos al menos una tabla válida
+    if not valid_schemas:
+        logger.error("No hay tablas válidas después de la verificación multi-schema")
+        error_msg = "Error: No se encontraron tablas válidas.\n"
+        if validation_errors:
+            error_msg += "Problemas detectados:\n" + "\n".join(validation_errors)
+        return error_msg
+    
+    if validation_errors:
+        logger.info(f"Continuando con {len(valid_schemas)} tablas válidas (algunas faltantes)")
+    
+    # Fase 2: Expansión de contexto (solo si es necesario y válido)
+    if len(valid_schemas) <= 2:
         logger.info("--- Saltando expansión para consulta simple ---")
-        expanded_schemas = relevant_schemas
+        final_schemas = valid_schemas
     else:
-        expanded_schemas = retriever.expand_schemas(relevant_schemas)
+        expanded_schemas = retriever.expand_schemas(valid_schemas)
         logger.info("--- Esquemas expandidos ---")
-        for s in expanded_schemas:
-            logger.info(f"Tabla: {s['metadata']['table_name']}")
-    
-    # Verificar tablas expandidas también
-    expanded_table_names = [s["metadata"]["table_name"] for s in expanded_schemas]
-    expanded_check = executor.check_schema_tables(schema, expanded_table_names)
-    
-    # Filtrar esquemas expandidos para incluir solo tablas existentes
-    final_schemas = [s for s in expanded_schemas if s["metadata"]["table_name"] in expanded_check["existing_tables"]]
-    
-    if not final_schemas:
-        logger.error("No hay tablas válidas después de la expansión y validación")
-        return f"Error: No se encontraron tablas válidas en el schema '{schema}' para procesar la consulta."
+        
+        # NUEVO: Validar esquemas expandidos también
+        final_schemas = []
+        for expanded_schema in expanded_schemas:
+            table_name = expanded_schema["metadata"]["table_name"]
+            expanded_schema_type = expanded_schema["metadata"].get("schema", "tenant")
+            
+            # Verificar en el schema correcto
+            target_schema_check = "public" if expanded_schema_type == "public" else schema
+            table_check = executor.check_schema_tables(target_schema_check, [table_name])
+            
+            if table_check["total_found"] > 0:
+                final_schemas.append(expanded_schema)
+                logger.info(f"Tabla expandida válida: {table_name} en {target_schema_check}")
+            else:
+                logger.warning(f"Tabla expandida inválida: {table_name} no existe en {target_schema_check}")
+        
+        if not final_schemas:
+            logger.warning("Expansión resultó en tablas inválidas, usando esquemas originales")
+            final_schemas = valid_schemas
     
     logger.info(f"Tablas finales para SQL: {[s['metadata']['table_name'] for s in final_schemas]}")
     
-    # Fase 3: Generación SQL con schema específico
-    logger.info(f"Generando SQL para schema: {schema}")
+    # Fase 3: Generación SQL con detección automática de schemas
+    logger.info(f"Generando SQL multi-tenant con schema objetivo: {schema}")
     sql_query = generator.generate_sql_and_response(query, final_schemas, target_schema=schema)
     logger.info("--- SQL generado ---")
     logger.info(sql_query)
@@ -158,14 +202,15 @@ def full_pipeline(query: str, schema: str) -> str:
         )
         logger.info("--- Respuesta final generada (con resultados) ---")
     
-    # Mostrar resumen final con nuevo enfoque
-    print("\n🤖 === RESUMEN FINAL - 100% LLM DRIVEN ===")
+    # Mostrar resumen final con enfoque multi-tenant
+    print("\n🤖 === RESUMEN FINAL - MULTI-TENANT INTELIGENTE ===")
     print(f"❓ Consulta: {query}")
-    print(f"🗂️ Schema: {schema}")
-    print(f"📋 Tablas disponibles: {total_available}")
-    print(f"🤖 Tablas seleccionadas por LLM: {len(final_schemas)}")
+    print(f"🗂️ Schema TENANT objetivo: {schema}")
+    print(f"📊 Tablas PUBLIC usadas: {len(public_tables)}")
+    print(f"📊 Tablas TENANT usadas: {len(tenant_tables)}")
     print(f"📈 Resultados encontrados: {len(result.get('data', []))}")
-    print("🧠 Nota: Selección de tablas 100% inteligente - el LLM decide qué es necesario")
+    print("🧠 Detección automática: Cada tabla usa su schema correcto")
+    print("🎯 0% hardcoding: Clasificación basada en metadata")
     print("=" * 50)
     
     return final_response

@@ -22,26 +22,199 @@ class SchemaRetriever:
 
     def _get_volunteer_schemas(self) -> List[Dict[str, Any]]:
         """
-        Define los esquemas estáticos para el sistema de voluntarios.
+        Define los esquemas estáticos para el sistema multi-tenant de voluntarios.
         
         Returns:
-            Lista de esquemas con metadatos estructurados
+            Lista de esquemas con metadatos estructurados (PUBLIC + TENANT)
         """
         return [
+            # ========== SCHEMA PUBLIC (Centralizadas) ==========
             {
-                "schema_text": "Tabla 'areas' almacena las diferentes áreas de trabajo para voluntarios, cada una con competencias específicas. Incluye id único, nombre del área y array de competencias requeridas.",
+                "schema_text": "Tabla 'administradores' en schema PUBLIC contiene los administradores principales de la plataforma. Gestiona accesos y permisos a nivel global.",
+                "metadata": {
+                    "table_name": "administradores",
+                    "schema": "public",
+                    "columns": [
+                        "id (UUID)",
+                        "nombre (TEXT)",
+                        "correo (TEXT)",
+                        "hash_contrasena (TEXT)",
+                        "permisos (JSONB)",
+                        "creado_en (TIMESTAMP)",
+                        "actualizado_en (TIMESTAMP)"
+                    ],
+                    "relationships": [],
+                    "related_tables": [],
+                    "enums": {},
+                    "indices": [
+                        {
+                            "name": "administradores_pkey",
+                            "type": "primary",
+                            "columns": ["id"]
+                        },
+                        {
+                            "name": "administradores_correo_key",
+                            "type": "unique",
+                            "columns": ["correo"]
+                        }
+                    ]
+                },
+                "score": 1.0
+            },
+            {
+                "schema_text": "Tabla 'organizaciones' en schema PUBLIC contiene información de todos los tenants/organizaciones. Cada organización tiene su propio schema dinámico.",
+                "metadata": {
+                    "table_name": "organizaciones",
+                    "schema": "public",
+                    "columns": [
+                        "id (UUID)",
+                        "nombre (TEXT)",
+                        "nombre_esquema (TEXT)",
+                        "subdominio (TEXT)",
+                        "email (TEXT)",
+                        "creado_en (TIMESTAMP)",
+                        "actualizado_en (TIMESTAMP)"
+                    ],
+                    "relationships": [
+                        {
+                            "type": "uno-a-muchos",
+                            "description": "organizaciones.id -> suscripciones.organizacion_id",
+                            "target_table": "suscripciones"
+                        },
+                        {
+                            "type": "uno-a-muchos",
+                            "description": "organizaciones.id -> tenant_usuarios.tenant_id",
+                            "target_table": "tenant_usuarios"
+                        }
+                    ],
+                    "related_tables": ["suscripciones", "tenant_usuarios"],
+                    "enums": {},
+                    "indices": [
+                        {
+                            "name": "organizaciones_pkey",
+                            "type": "primary",
+                            "columns": ["id"]
+                        },
+                        {
+                            "name": "organizaciones_nombre_esquema_key",
+                            "type": "unique",
+                            "columns": ["nombre_esquema"]
+                        },
+                        {
+                            "name": "organizaciones_subdominio_key",
+                            "type": "unique",
+                            "columns": ["subdominio"]
+                        },
+                        {
+                            "name": "organizaciones_email_key",
+                            "type": "unique",
+                            "columns": ["email"]
+                        }
+                    ]
+                },
+                "score": 1.0
+            },
+            {
+                "schema_text": "Tabla 'suscripciones' en schema PUBLIC gestiona los planes y pagos de cada organización/tenant. Controla el estado de suscripción de cada tenant.",
+                "metadata": {
+                    "table_name": "suscripciones",
+                    "schema": "public",
+                    "columns": [
+                        "id (UUID)",
+                        "organizacion_id (UUID)",
+                        "plan (TEXT)",
+                        "fecha_inicio (DATE)",
+                        "fecha_proximo_pago (DATE)",
+                        "estado (TEXT)",
+                        "creado_en (TIMESTAMP)",
+                        "actualizado_en (TIMESTAMP)"
+                    ],
+                    "relationships": [
+                        {
+                            "type": "muchos-a-uno",
+                            "description": "suscripciones.organizacion_id -> organizaciones.id",
+                            "target_table": "organizaciones"
+                        }
+                    ],
+                    "related_tables": ["organizaciones"],
+                    "enums": {
+                        "estado": ["activa", "suspendida", "cancelada", "vencida"]
+                    },
+                    "indices": [
+                        {
+                            "name": "suscripciones_pkey",
+                            "type": "primary",
+                            "columns": ["id"]
+                        }
+                    ]
+                },
+                "score": 1.0
+            },
+            {
+                "schema_text": "Tabla 'tenant_usuarios' en schema PUBLIC contiene COORDINADORES y usuarios de cada tenant/organización. Los coordinadores tienen rol='coordinador'. Esta es la tabla principal para consultas sobre coordinadores.",
+                "metadata": {
+                    "table_name": "tenant_usuarios",
+                    "schema": "public",
+                    "columns": [
+                        "id (UUID)",
+                        "tenant_id (UUID)",
+                        "nombre (TEXT)",
+                        "correo (TEXT)",
+                        "hash_contrasena (TEXT)",
+                        "rol (TEXT)",
+                        "permisos (JSONB)",
+                        "creado_en (TIMESTAMP)",
+                        "actualizado_en (TIMESTAMP)"
+                    ],
+                    "relationships": [
+                        {
+                            "type": "muchos-a-uno",
+                            "description": "tenant_usuarios.tenant_id -> organizaciones.id",
+                            "target_table": "organizaciones"
+                        }
+                    ],
+                    "related_tables": ["organizaciones"],
+                    "enums": {
+                        "rol": ["coordinador", "admin", "usuario"]
+                    },
+                    "indices": [
+                        {
+                            "name": "tenant_usuarios_pkey",
+                            "type": "primary",
+                            "columns": ["id"]
+                        },
+                        {
+                            "name": "tenant_usuarios_correo_key",
+                            "type": "unique",
+                            "columns": ["correo"]
+                        }
+                    ]
+                },
+                "score": 1.0
+            },
+            
+            # ========== SCHEMA TENANT (Dinámicas por organización) ==========
+            {
+                "schema_text": "Tabla 'areas' almacena las diferentes áreas de trabajo para voluntarios, cada una con competencias específicas. Incluye id único, nombre del área y array de competencias requeridas. El coordinador_id referencia a public.tenant_usuarios.",
                 "metadata": {
                     "table_name": "areas",
                     "columns": [
                         "id (UUID)",
                         "nombre (TEXT)", 
-                        "competencias (text[])"
+                        "competencias (text[])",
+                        "coordinador_id (UUID)"
                     ],
                     "relationships": [
                         {
                             "type": "uno-a-muchos",
                             "description": "areas.id -> voluntarios.area_id",
                             "target_table": "voluntarios"
+                        },
+                        {
+                            "type": "muchos-a-uno",
+                            "description": "areas.coordinador_id -> public.tenant_usuarios.id",
+                            "target_table": "tenant_usuarios",
+                            "cross_schema": True
                         }
                     ],
                     "related_tables": ["voluntarios"],
@@ -57,7 +230,7 @@ class SchemaRetriever:
                 "score": 1.0
             },
             {
-                "schema_text": "Tabla 'voluntarios' contiene información personal y de contacto de todos los voluntarios registrados. Incluye datos personales, estado actual, historial de participación y referencias a coordinador y área asignada.",
+                "schema_text": "Tabla 'voluntarios' contiene información personal y de contacto de todos los voluntarios registrados. Incluye datos personales, estado actual, historial de participación y referencias a coordinador y área asignada. El coordinador_id referencia a public.tenant_usuarios.",
                 "metadata": {
                     "table_name": "voluntarios",
                     "columns": [
@@ -77,6 +250,12 @@ class SchemaRetriever:
                             "type": "muchos-a-uno",
                             "description": "voluntarios.area_id -> areas.id",
                             "target_table": "areas"
+                        },
+                        {
+                            "type": "muchos-a-uno",
+                            "description": "voluntarios.coordinador_id -> public.tenant_usuarios.id",
+                            "target_table": "tenant_usuarios",
+                            "cross_schema": True
                         },
                         {
                             "type": "uno-a-muchos",
@@ -109,7 +288,7 @@ class SchemaRetriever:
                 "score": 1.0
             },
             {
-                "schema_text": "Tabla 'operaciones' define las diferentes actividades y eventos donde pueden participar los voluntarios. Contiene información detallada sobre fechas, ubicación, capacidad y requisitos específicos.",
+                "schema_text": "Tabla 'operaciones' define las diferentes actividades y eventos donde pueden participar los voluntarios. Contiene información detallada sobre fechas, ubicación, capacidad y requisitos específicos. El coordinador_id referencia a public.tenant_usuarios.",
                 "metadata": {
                     "table_name": "operaciones",
                     "columns": [
@@ -128,6 +307,12 @@ class SchemaRetriever:
                         "requisitos (JSONB)"
                     ],
                     "relationships": [
+                        {
+                            "type": "muchos-a-uno",
+                            "description": "operaciones.coordinador_id -> public.tenant_usuarios.id",
+                            "target_table": "tenant_usuarios",
+                            "cross_schema": True
+                        },
                         {
                             "type": "uno-a-muchos",
                             "description": "operaciones.id -> inscripciones.operacion_id",
@@ -199,7 +384,7 @@ class SchemaRetriever:
                 "score": 1.0
             },
             {
-                "schema_text": "Tabla 'asistencia' registra la participación efectiva de voluntarios en operaciones. Permite marcar asistencia y controlar la participación real vs inscripciones.",
+                "schema_text": "Tabla 'asistencia' registra la participación efectiva de voluntarios en operaciones. Permite marcar asistencia y controlar la participación real vs inscripciones. El coordinador_id referencia a public.tenant_usuarios.",
                 "metadata": {
                     "table_name": "asistencia",
                     "columns": [
@@ -214,6 +399,12 @@ class SchemaRetriever:
                             "type": "muchos-a-uno",
                             "description": "asistencia.inscripcion_id -> inscripciones.id", 
                             "target_table": "inscripciones"
+                        },
+                        {
+                            "type": "muchos-a-uno",
+                            "description": "asistencia.coordinador_id -> public.tenant_usuarios.id",
+                            "target_table": "tenant_usuarios",
+                            "cross_schema": True
                         }
                     ],
                     "related_tables": ["inscripciones"],
@@ -231,7 +422,7 @@ class SchemaRetriever:
                 "score": 1.0
             },
             {
-                "schema_text": "Tabla 'certificados' gestiona los certificados emitidos a voluntarios por su participación en operaciones completadas. Almacena URLs de PDFs y metadata de emisión.",
+                "schema_text": "Tabla 'certificados' gestiona los certificados emitidos a voluntarios por su participación en operaciones completadas. Almacena URLs de PDFs y metadata de emisión. El coordinador_id referencia a public.tenant_usuarios.",
                 "metadata": {
                     "table_name": "certificados",
                     "columns": [
@@ -252,6 +443,12 @@ class SchemaRetriever:
                             "type": "muchos-a-uno",
                             "description": "certificados.operacion_id -> operaciones.id",
                             "target_table": "operaciones"
+                        },
+                        {
+                            "type": "muchos-a-uno",
+                            "description": "certificados.coordinador_id -> public.tenant_usuarios.id",
+                            "target_table": "tenant_usuarios",
+                            "cross_schema": True
                         }
                     ],
                     "related_tables": ["voluntarios", "operaciones"],
@@ -273,43 +470,77 @@ class SchemaRetriever:
     
     def get_relevant_tables(self, query: str, top_k=6) -> list:
         """
-        Usa el LLM para seleccionar inteligentemente las tablas necesarias.
-        ENFOQUE 100% LLM: Sin hardcoding, el modelo decide todo.
-        """
-        logger.info(f"🤖 Usando LLM para seleccionar tablas para: '{query}'")
+        Selección inteligente multi-tenant MEJORADA.
         
-        # Preparar información de tablas para el LLM (OPTIMIZADA - menos tokens)
+        - Mantiene tu lógica LLM original al 100%
+        - Añade detección automática de schemas sin hardcodeo
+        - Mejora el prompt con información de arquitectura
+        - Fallback inteligente mejorado
+        """
+        logger.info(f"🤖 Selección inteligente multi-tenant para: '{query}'")
+        
+        # ========== PREPARACIÓN INTELIGENTE DE DATOS (MEJORADO) ==========
         table_info = []
+        public_tables = []
+        tenant_tables = []
+        
         for schema in self.schemas:
             table_name = schema["metadata"]["table_name"]
-            # Solo columnas esenciales para reducir tokens
-            columns = [col.split(" (")[0] for col in schema["metadata"].get("columns", [])][:3]
-            # Descripción condensada
-            description = schema["schema_text"][:100] + "..." if len(schema["schema_text"]) > 100 else schema["schema_text"]
+            schema_type = schema["metadata"].get("schema", "tenant")  # Detección automática
+            columns = [col.split(" (")[0] for col in schema["metadata"].get("columns", [])]
+            description = schema["schema_text"]
             
-            table_info.append({
+            # TU LÓGICA ORIGINAL: Incluir información sobre tipos de datos importantes
+            column_types = []
+            for col in schema["metadata"].get("columns", []):
+                if "UUID" in col or "coordinador" in col.lower() or "estado" in col.lower():
+                    column_types.append(col)
+            
+            # NUEVO: Información enriquecida con schema type
+            enhanced_table_info = {
                 "table": table_name,
+                "schema_type": schema_type,  # NUEVO: Identificar automáticamente el tipo
                 "desc": description,
-                "cols": columns
-            })
+                "cols": columns,
+                "important_cols": column_types
+            }
+            
+            table_info.append(enhanced_table_info)
+            
+            # NUEVO: Separar por schema automáticamente
+            if schema_type == "public":
+                public_tables.append(enhanced_table_info)
+            else:
+                tenant_tables.append(enhanced_table_info)
         
-        # Prompt OPTIMIZADO para menos tokens
-        system_prompt = """Eres experto SQL. Selecciona SOLO las tablas MÍNIMAS necesarias.
+        # ========== PROMPT MEJORADO (combinando ambos enfoques) ==========
+        system_prompt = """Eres experto SQL multi-tenant. Selecciona SOLO las tablas MÍNIMAS necesarias.
 
-REGLAS:
-1. Para consultas simples (contar, listar) usa UNA tabla
-2. Para consultas complejas usa las tablas relacionadas necesarias
-3. Sé MINIMALISTA
+    ARQUITECTURA AUTOMÁTICA DETECTADA:
+    - Tablas PUBLIC: Datos centralizados (coordinadores, organizaciones)
+    - Tablas TENANT: Datos específicos por organización (voluntarios, operaciones)
 
-Responde solo JSON sin markdown:
-{"selected_tables": ["tabla1"], "reasoning": "breve explicación"}"""
+    REGLAS INTELIGENTES:
+    1. Para consultas simples (contar, listar) usa UNA tabla del schema correcto
+    2. Para consultas complejas usa las tablas relacionadas necesarias
+    3. Considera automáticamente el tipo de schema (public vs tenant)
+    4. Sé MINIMALISTA pero PRECISO
 
-        user_prompt = f"""TABLAS:
-{json.dumps(table_info, ensure_ascii=False)}
+    Responde solo JSON sin markdown:
+    {"selected_tables": ["tabla1"], "reasoning": "breve explicación considerando schemas"}"""
 
-CONSULTA: {query}
+        # NUEVO: Prompt enriquecido con información de arquitectura
+        user_prompt = f"""ARQUITECTURA MULTI-TENANT DETECTADA:
 
-JSON de respuesta:"""
+    📊 TABLAS PUBLIC (centralizadas): {len(public_tables)} tablas
+    {json.dumps(public_tables, ensure_ascii=False, indent=1)}
+
+    📊 TABLAS TENANT (por organización): {len(tenant_tables)} tablas  
+    {json.dumps(tenant_tables, ensure_ascii=False, indent=1)}
+
+    CONSULTA: {query}
+
+    ¿Qué tablas específicas necesitas? Considera que algunas están en schema público y otras en tenant dinámico."""
 
         try:
             messages = [
@@ -318,24 +549,31 @@ JSON de respuesta:"""
             ]
             
             response = self.llm.invoke(messages)
-            logger.info(f"🤖 Respuesta del LLM: {response.content}")
+            logger.info(f"🤖 Respuesta LLM multi-tenant: {response.content}")
             
-            # Limpiar markdown del JSON
+            # TU LÓGICA ORIGINAL: Limpiar markdown del JSON
             clean_response = response.content.strip()
             if clean_response.startswith('```json'):
                 clean_response = clean_response.replace('```json', '').replace('```', '').strip()
             elif clean_response.startswith('```'):
                 clean_response = clean_response.replace('```', '').strip()
             
-            # Parsear respuesta JSON
+            # TU LÓGICA ORIGINAL: Parsear respuesta JSON
             response_data = json.loads(clean_response)
             selected_table_names = response_data.get("selected_tables", [])
             reasoning = response_data.get("reasoning", "Sin explicación")
             
             logger.info(f"🎯 LLM seleccionó {len(selected_table_names)} tablas: {selected_table_names}")
-            logger.info(f"🧠 Razonamiento: {reasoning}")
+            logger.info(f"🧠 Razonamiento multi-tenant: {reasoning}")
             
-            # Filtrar esquemas basado en la selección del LLM
+            # NUEVO: Logging mejorado con información de schemas
+            selected_public = [t for t in selected_table_names if t in [pt["table"] for pt in public_tables]]
+            selected_tenant = [t for t in selected_table_names if t in [tt["table"] for tt in tenant_tables]]
+            
+            logger.info(f"📊 Distribución: PUBLIC({len(selected_public)}): {selected_public}")
+            logger.info(f"📊 Distribución: TENANT({len(selected_tenant)}): {selected_tenant}")
+            
+            # TU LÓGICA ORIGINAL: Filtrar esquemas basado en la selección del LLM
             selected_schemas = []
             for schema in self.schemas:
                 table_name = schema["metadata"]["table_name"]
@@ -345,31 +583,34 @@ JSON de respuesta:"""
                     selected_schemas.append(schema_copy)
             
             if not selected_schemas:
-                logger.warning("⚠️ LLM no seleccionó tablas válidas, usando fallback")
-                return self._fallback_table_selection(query)
+                logger.warning("⚠️ LLM no seleccionó tablas válidas, usando fallback inteligente")
+                return self._intelligent_fallback_enhanced(query)
             
             return selected_schemas
             
         except json.JSONDecodeError as e:
             logger.error(f"❌ Error parseando JSON: {e}")
             logger.error(f"Respuesta limpia: {clean_response}")
-            return self._fallback_table_selection(query)
+            return self._intelligent_fallback_enhanced(query)
             
         except Exception as e:
             logger.error(f"❌ Error en selección LLM: {e}")
-            return self._fallback_table_selection(query)
+            return self._intelligent_fallback_enhanced(query)
 
-    def _fallback_table_selection(self, query: str) -> list:
+    def _intelligent_fallback_enhanced(self, query: str) -> list:
         """
-        Fallback mínimo si el LLM falla.
-        Solo busca menciones directas de nombres de tabla.
+        Fallback inteligente MEJORADO que combina tu lógica con detección automática.
+        
+        - Mantiene tu búsqueda por menciones directas
+        - Añade detección automática de schema types
+        - Sin hardcodeo: usa la metadata de los schemas
         """
-        logger.info("🔄 Usando fallback mínimo para selección de tablas")
+        logger.info("🔄 Usando fallback inteligente multi-tenant")
         
         query_lower = query.lower()
         selected_schemas = []
         
-        # Buscar menciones directas de tablas
+        # ========== NIVEL 1: TU LÓGICA ORIGINAL (Menciones directas) ==========
         for schema in self.schemas:
             table_name = schema["metadata"]["table_name"]
             table_singular = table_name[:-1] if table_name.endswith('s') else table_name
@@ -378,17 +619,74 @@ JSON de respuesta:"""
                 schema_copy = schema.copy()
                 schema_copy["score"] = 1.0
                 selected_schemas.append(schema_copy)
+                logger.info(f"🔍 Mención directa encontrada: {table_name}")
         
-        # Si no encuentra nada, usar la tabla de voluntarios como default
+        # ========== NIVEL 2: DETECCIÓN AUTOMÁTICA POR SCHEMA TYPE (NUEVO) ==========
         if not selected_schemas:
-            logger.info("🔄 No se encontraron menciones directas, usando tabla por defecto")
+            logger.info("🔍 Sin menciones directas, usando detección automática por schema")
+            
+            # Detectar automáticamente qué tipo de tablas podrían ser relevantes
+            public_candidates = []
+            tenant_candidates = []
+            
+            for schema in self.schemas:
+                table_name = schema["metadata"]["table_name"]
+                schema_type = schema["metadata"].get("schema", "tenant")
+                columns = [col.lower() for col in schema["metadata"].get("columns", [])]
+                
+                # Buscar coincidencias semánticas en columnas y descripción
+                semantic_score = 0
+                description_lower = schema["schema_text"].lower()
+                
+                # Calcular relevancia basada en contenido, no hardcodeo
+                query_words = query_lower.split()
+                for word in query_words:
+                    if word in description_lower:
+                        semantic_score += 2
+                    if any(word in col for col in columns):
+                        semantic_score += 1
+                
+                if semantic_score > 0:
+                    candidate = {
+                        "schema": schema,
+                        "score": semantic_score,
+                        "schema_type": schema_type
+                    }
+                    
+                    if schema_type == "public":
+                        public_candidates.append(candidate)
+                    else:
+                        tenant_candidates.append(candidate)
+            
+            # Seleccionar los mejores candidatos automáticamente
+            all_candidates = public_candidates + tenant_candidates
+            all_candidates.sort(key=lambda x: x["score"], reverse=True)
+            
+            if all_candidates:
+                best_candidate = all_candidates[0]
+                schema_copy = best_candidate["schema"].copy()
+                schema_copy["score"] = 1.0
+                selected_schemas.append(schema_copy)
+                
+                logger.info(f"🤖 Detección automática seleccionó: {best_candidate['schema']['metadata']['table_name']} "
+                        f"(schema: {best_candidate['schema_type']}, score: {best_candidate['score']})")
+        
+        # ========== NIVEL 3: TU FALLBACK ORIGINAL (si todo falla) ==========
+        if not selected_schemas:
+            logger.info("🔄 Usando fallback original: tabla por defecto")
             default_schema = self.get_schema_by_table_name("voluntarios")
             if default_schema:
                 default_schema_copy = default_schema.copy()
                 default_schema_copy["score"] = 1.0
                 selected_schemas = [default_schema_copy]
         
-        logger.info(f"🔄 Fallback seleccionó: {[s['metadata']['table_name'] for s in selected_schemas]}")
+        # ========== LOGGING MEJORADO ==========
+        selected_names = [s['metadata']['table_name'] for s in selected_schemas]
+        selected_types = [s['metadata'].get('schema', 'tenant') for s in selected_schemas]
+        
+        logger.info(f"🔄 Fallback inteligente seleccionó: {selected_names}")
+        logger.info(f"📊 Tipos de schema: {dict(zip(selected_names, selected_types))}")
+        
         return selected_schemas
     
     def get_schema_by_table_name(self, table_name: str) -> dict:

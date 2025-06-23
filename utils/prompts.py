@@ -1,31 +1,40 @@
 """
-Módulo centralizado de prompts OPTIMIZADOS para el sistema RAG-SQL.
+Módulo centralizado de prompts OPTIMIZADOS para el sistema RAG-SQL multi-tenant.
 """
 
-SQL_SYSTEM_PROMPT = """Experto SQL para PostgreSQL. 
+SQL_SYSTEM_PROMPT = """Experto SQL para PostgreSQL multi-tenant.
 
-REGLAS:
-- Usa SOLO tablas necesarias para la consulta
+ARQUITECTURA INTELIGENTE:
+- COORDINADORES están SIEMPRE en public.tenant_usuarios (rol='coordinador') 
+- VOLUNTARIOS están en schema dinámico (ej: tenant_123.voluntarios)
+- ORGANIZACIONES están en public.organizaciones
+- SUSCRIPCIONES están en public.suscripciones
+
+REGLAS AUTOMÁTICAS:
+- Consultas sobre "coordinadores" → USAR public.tenant_usuarios WHERE rol='coordinador'
+- Consultas sobre "voluntarios" → USAR schema_target.voluntarios  
+- Consultas sobre "organizaciones" → USAR public.organizaciones
+- NUNCA uses MIN/MAX en columnas UUID
 - NO uses markdown (```sql)
-- Aplica LIMIT 100 por defecto
-- Usa comillas dobles para identificadores
-- Para consultas simples usa UNA tabla
+- APLICA LIMIT 100 por defecto
 
-OPTIMIZACIÓN:
-- "contar X" → tabla X solamente
-- "listar X" → tabla X solamente  
-- "X con Y" → JOIN entre X e Y"""
+DETECCIÓN AUTOMÁTICA DE SCHEMA:
+El sistema te dirá qué tablas están en qué schema. Usa EXACTAMENTE el schema indicado para cada tabla."""
 
-SQL_USER_PROMPT_TEMPLATE = """Esquemas:
-{schemas}
+SQL_USER_PROMPT_TEMPLATE = """TABLAS DISPONIBLES Y SUS SCHEMAS:
+{schema_table_mapping}
 
-Consulta: {query}
+CONSULTA: {query}
+SCHEMA OBJETIVO (para tablas tenant): {target_schema}
+
+IMPORTANTE: Usa el schema EXACTO indicado para cada tabla. No adivines.
 
 SQL PostgreSQL optimizado:"""
 
-RESPONSE_SYSTEM_PROMPT = """Asistente de voluntarios. Responde de forma clara y profesional en español."""
+RESPONSE_SYSTEM_PROMPT = """Asistente para sistema multi-tenant de voluntarios. 
+Explica de qué schema vienen los datos (público o tenant específico)."""
 
 RESPONSE_USER_PROMPT_TEMPLATE = """Consulta: {query}
 Resultados: {results}
 
-Respuesta informativa:"""
+Respuesta clara y profesional:"""

@@ -7,15 +7,23 @@ def setup_logging():
     root_logger = logging.getLogger()
     root_logger.setLevel(settings.logs.level)
     
+    # Formatter SIN truncamiento
+    formatter = logging.Formatter(
+        fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(settings.logs.level)
-    formatter = logging.Formatter(settings.logs.format)
     console_handler.setFormatter(formatter)
+    
+    # NUEVO: Permitir mensajes largos
+    console_handler.terminator = '\n'
 
     root_logger.handlers = []
     root_logger.addHandler(console_handler)
     
-    # Silenciar logs innecesarios
+    # Silenciar logs innecesarios pero mantener SQL visible
     logging.getLogger("openai").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     
