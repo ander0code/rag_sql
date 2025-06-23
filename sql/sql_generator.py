@@ -117,7 +117,7 @@ class SQLGenerator:
         )
         
         # ========== LOGGING INTELIGENTE (NUEVO) ==========
-        logger.info(f"🔍 Detección automática completada:")
+        logger.info("🔍 Detección automática completada:")
         logger.info(f"📊 Tablas PUBLIC: {list(public_tables)}")
         logger.info(f"📊 Tablas TENANT: {list(tenant_tables)}")
         
@@ -156,8 +156,60 @@ class SQLGenerator:
         - Añade detección automática de schemas
         - Conserva tu análisis de metadatos
         - Mejora la aplicación de prefijos
+        - NUEVO: Limpia comentarios de Markdown que causan errores SQL
         """
-        clean_raw_sql = re.sub(r'^```sql|```$', '', raw_sql, flags=re.IGNORECASE)
+        # NUEVO: Limpieza agresiva de comentarios y texto explicativo
+        logger.info(f"🔧 SQL RAW recibido (primeros 200 chars): {raw_sql[:200]}")
+        
+        # Remover comentarios de Markdown y texto explicativo
+        lines = raw_sql.split('\n')
+        sql_lines = []
+        inside_sql_block = False
+        
+        for line in lines:
+            line = line.strip()
+            # Detectar inicio de bloque SQL
+            if line.startswith('```sql'):
+                inside_sql_block = True
+                continue
+            # Detectar fin de bloque SQL
+            elif line.startswith('```') and inside_sql_block:
+                inside_sql_block = False
+                continue
+            # Si estamos dentro del bloque SQL, incluir la línea
+            elif inside_sql_block:
+                if line and not line.startswith('#') and not line.startswith('--'):
+                    sql_lines.append(line)
+            # Si no hay bloques de código, buscar SELECT directamente
+            elif 'SELECT' in line.upper() and not line.startswith('#'):
+                sql_lines.append(line)
+                # Continuar capturando las siguientes líneas hasta punto y coma
+                inside_sql_block = True
+        
+        # Si no encontramos SQL en bloques de código, extraer desde SELECT
+        if not sql_lines:
+            logger.warning("🔧 No se encontró SQL en bloques de código, extrayendo desde SELECT")
+            select_start = raw_sql.upper().find('SELECT')
+            if select_start != -1:
+                potential_sql = raw_sql[select_start:]
+                # Remover texto después del primer punto y coma seguido de texto explicativo
+                semicolon_pos = potential_sql.find(';')
+                if semicolon_pos != -1:
+                    # Buscar si hay texto explicativo después del ;
+                    remaining = potential_sql[semicolon_pos + 1:].strip()
+                    if remaining and not remaining.upper().startswith('SELECT'):
+                        potential_sql = potential_sql[:semicolon_pos + 1]
+                
+                sql_lines = [potential_sql.strip()]
+        
+        clean_raw_sql = ' '.join(sql_lines).strip()
+        logger.info(f"🔧 SQL después de limpieza de Markdown: {clean_raw_sql}")
+        
+        # Limpieza adicional de residuos
+        clean_raw_sql = re.sub(r'^#.*?\n', '', clean_raw_sql, flags=re.MULTILINE)  # Comentarios #
+        clean_raw_sql = re.sub(r'Explicación:.*$', '', clean_raw_sql, flags=re.DOTALL)  # Texto explicativo
+        clean_raw_sql = re.sub(r'```\w*', '', clean_raw_sql)  # Bloques de código residuales
+        clean_raw_sql = clean_raw_sql.strip()
         
         # ========== TU VALIDACIÓN UUID ORIGINAL (mantenida) ==========
         uuid_incompatible_functions = r'\b(MIN|MAX)\s*\(\s*"?id"?\s*\)'
@@ -282,7 +334,7 @@ class SQLGenerator:
             
         else:
             clean_sql = clean_raw_sql
-            logger.info(f"✅ SQL ya tiene prefijos de schema correctos")
+            logger.info("✅ SQL ya tiene prefijos de schema correctos")
 
         # ========== TU LIMPIEZA Y FORMATO ORIGINAL (mantenida completamente) ==========
         # Remover markdown residual

@@ -168,8 +168,8 @@ def full_pipeline(query: str, schema: str) -> str:
     # Fase 3: Generación SQL con detección automática de schemas
     logger.info(f"Generando SQL multi-tenant con schema objetivo: {schema}")
     sql_query = generator.generate_sql_and_response(query, final_schemas, target_schema=schema)
-    logger.info("--- SQL generado ---")
-    logger.info(sql_query)
+    logger.info("--- SQL generado COMPLETO ---")
+    logger.info(f"SQL COMPLETO: {sql_query}")  # NUEVO: Log completo sin truncar
     
     if not is_valid_sql(sql_query):
         logger.warning("SQL no válido detectado")
@@ -178,8 +178,9 @@ def full_pipeline(query: str, schema: str) -> str:
     # Fase 4: Ejecución
     result = executor.execute(sql_query)
     if "error" in result:
-        logger.error(f"Error en ejecución: {result['error']}")
-        return f"Error en ejecución: {result['error']}"
+        logger.error(f"Error en ejecución COMPLETO: {result['error']}")
+        logger.error(f"SQL que causó el error: {sql_query}")  # NUEVO: Mostrar SQL completo en errores
+        return f"Error en ejecución: {result['error']}\n\nSQL ejecutado: {sql_query}"
     
     logger.debug("Resultado de la consulta SQL:")
     logger.debug(result)
