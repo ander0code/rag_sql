@@ -15,7 +15,9 @@ def setup_logging():
     root_logger.handlers = []
     root_logger.addHandler(console_handler)
     
+    # Silenciar logs innecesarios
     logging.getLogger("openai").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     
-    logging.info(f"Logging configurado en nivel: {settings.logs.level}")
+    logging.info(f"✅ Logging configurado - Nivel: {settings.logs.level}")
+    logging.info("🤖 Sistema 100% LLM-driven operativo")

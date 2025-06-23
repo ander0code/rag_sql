@@ -36,34 +36,94 @@ def is_valid_sql(sql: str) -> bool:
     logger.debug(f"SQL validado correctamente: {sql[:100]}...")
     return True
 
-def full_pipeline(query: str) -> str:
+def full_pipeline(query: str, schema: str) -> str:
     """
     Pipeline principal de ejecución de consultas.
     
     Flujo de trabajo:
-    1. Recuperación de esquemas relevantes
-    2. Expansión de esquemas con relaciones
-    3. Generación de SQL
-    4. Ejecución y validación
-    5. Generación de respuesta natural
+    1. Validación de schema y tablas
+    2. Recuperación de esquemas relevantes
+    3. Expansión de esquemas con relaciones
+    4. Generación de SQL con schema específico
+    5. Ejecución y validación
+    6. Generación de respuesta natural
+    
+    Args:
+        query: Consulta en lenguaje natural
+        schema: Schema de la base de datos a consultar (OBLIGATORIO)
     """
-    logger.info(f"Iniciando pipeline para consulta: '{query}'")
+    if not schema or schema.strip() == "":
+        logger.error("Schema no proporcionado - es obligatorio")
+        return "Error: Debe especificar un schema válido."
     
-    # Fase 1: Recuperación de esquemas
+    logger.info(f"Iniciando pipeline para consulta: '{query}' en schema: '{schema}'")
+    
+    # Fase 0: Validación de schema y tablas
+    logger.info("--- Validando schema y tablas ---")
+    
+    # Obtener schemas disponibles
+    available_schemas = executor.get_available_schemas()
+    logger.info(f"Schemas disponibles: {available_schemas}")
+    
+    if schema not in available_schemas:
+        logger.error(f"Schema '{schema}' no existe en la base de datos")
+        return f"Error: El schema '{schema}' no existe. Schemas disponibles: {', '.join(available_schemas)}"
+    
+    # Fase 1: Recuperación de esquemas (100% LLM-DRIVEN)
     relevant_schemas = retriever.get_relevant_tables(query)
-    logger.info("--- Tablas iniciales ---")
-    for schema in relevant_schemas:
-        table_name = schema["metadata"].get("table_name", "Desconocida")
-        logger.info(f"Tabla: {table_name} (Score: {schema['score']:.2f})")
+    logger.info("--- Tablas seleccionadas por LLM ---")
+    for schema_item in relevant_schemas:
+        table_name = schema_item["metadata"].get("table_name", "Desconocida")
+        logger.info(f"Tabla: {table_name}")
     
-    # Fase 2: Expansión de contexto
-    expanded_schemas = retriever.expand_schemas(relevant_schemas)
-    logger.info("--- Esquemas expandidos ---")
-    for s in expanded_schemas:
-        logger.info(f"Tabla: {s['metadata']['table_name']}")
+    # Mostrar que ahora es inteligente, no hardcodeado
+    total_available = len(retriever.schemas)
+    selected_count = len(relevant_schemas)
+    logger.info(f"🤖 Selección LLM: {selected_count}/{total_available} tablas (decisión inteligente del modelo)")
     
-    # Fase 3: Generación SQL
-    sql_query = generator.generate_sql_and_response(query, expanded_schemas)
+    # Verificar si las tablas existen en el schema objetivo
+    table_names = [s["metadata"]["table_name"] for s in relevant_schemas]
+    table_check = executor.check_schema_tables(schema, table_names)
+    
+    logger.info(f"Verificación de tablas: {table_check['total_found']}/{table_check['total_requested']} encontradas")
+    
+    if table_check["total_found"] == 0:
+        logger.error(f"Ninguna tabla requerida existe en el schema '{schema}'")
+        return f"Error: Las tablas necesarias ({', '.join(table_names)}) no existen en el schema '{schema}'. Tablas disponibles en otros schemas."
+    
+    if table_check["missing_tables"]:
+        logger.warning(f"Tablas faltantes en schema '{schema}': {table_check['missing_tables']}")
+        # Filtrar solo las tablas que existen
+        relevant_schemas = [s for s in relevant_schemas if s["metadata"]["table_name"] in table_check["existing_tables"]]
+        logger.info(f"Continuando con {len(relevant_schemas)} tablas disponibles")
+    
+    # Fase 2: Expansión de contexto (solo si es necesario)
+    if len(relevant_schemas) <= 2:
+        # Para consultas simples, evitar expansión innecesaria
+        logger.info("--- Saltando expansión para consulta simple ---")
+        expanded_schemas = relevant_schemas
+    else:
+        expanded_schemas = retriever.expand_schemas(relevant_schemas)
+        logger.info("--- Esquemas expandidos ---")
+        for s in expanded_schemas:
+            logger.info(f"Tabla: {s['metadata']['table_name']}")
+    
+    # Verificar tablas expandidas también
+    expanded_table_names = [s["metadata"]["table_name"] for s in expanded_schemas]
+    expanded_check = executor.check_schema_tables(schema, expanded_table_names)
+    
+    # Filtrar esquemas expandidos para incluir solo tablas existentes
+    final_schemas = [s for s in expanded_schemas if s["metadata"]["table_name"] in expanded_check["existing_tables"]]
+    
+    if not final_schemas:
+        logger.error("No hay tablas válidas después de la expansión y validación")
+        return f"Error: No se encontraron tablas válidas en el schema '{schema}' para procesar la consulta."
+    
+    logger.info(f"Tablas finales para SQL: {[s['metadata']['table_name'] for s in final_schemas]}")
+    
+    # Fase 3: Generación SQL con schema específico
+    logger.info(f"Generando SQL para schema: {schema}")
+    sql_query = generator.generate_sql_and_response(query, final_schemas, target_schema=schema)
     logger.info("--- SQL generado ---")
     logger.info(sql_query)
     
@@ -85,18 +145,27 @@ def full_pipeline(query: str) -> str:
         logger.info("No se encontraron resultados")
         final_response = generator.generate_response_from_result(
             query, 
-            expanded_schemas, 
+            final_schemas, 
             {"data": [], "columns": [], "message": "No se encontraron resultados"}
         )
         logger.info("--- Respuesta final generada (sin resultados) ---")
     else:
-
         logger.info(f"Se encontraron {len(result.get('data', []))} resultados")
         final_response = generator.generate_response_from_result(
             query,
-            expanded_schemas,
+            final_schemas,
             result
         )
         logger.info("--- Respuesta final generada (con resultados) ---")
+    
+    # Mostrar resumen final con nuevo enfoque
+    print("\n🤖 === RESUMEN FINAL - 100% LLM DRIVEN ===")
+    print(f"❓ Consulta: {query}")
+    print(f"🗂️ Schema: {schema}")
+    print(f"📋 Tablas disponibles: {total_available}")
+    print(f"🤖 Tablas seleccionadas por LLM: {len(final_schemas)}")
+    print(f"📈 Resultados encontrados: {len(result.get('data', []))}")
+    print("🧠 Nota: Selección de tablas 100% inteligente - el LLM decide qué es necesario")
+    print("=" * 50)
     
     return final_response
