@@ -1,14 +1,16 @@
-# Core dependencies for Sistema de Gestión de Voluntarios
-langchain==0.3.20
-langchain-openai==0.3.7
-psycopg2-binary==2.9.10
-tiktoken==0.9.0
-openai==1.65.4
-pydantic-settings==2.8.1
-python-dotenv==1.0.1
-# Elimina qdrant-client y dependencias relacionadas
-# Añade dependencias necesarias para esquemas estáticos y gestión de voluntarios
-pandas
-numpy
-scikit-learn
-sentence-transformers
+# RAG-SQL Dependencias
+# Solo las que realmente se usan
+
+# LangChain (para LLM)
+langchain>=0.3.0
+langchain-openai>=0.3.0
+
+# Base de datos
+psycopg2-binary>=2.9.0
+
+# Configuración
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+
+# Testing
+pytest>=7.0.0

@@ -1,53 +1,67 @@
-import argparse
+"""RAG-SQL Dinámico."""
+
+import sys
 import logging
-from utils.logging_config import setup_logging
-from sql.pipeline_ejecucion import full_pipeline
+import argparse
 
-setup_logging()
-logger = logging.getLogger(__name__)
 
-def parse_args():
-    """Parsea argumentos de la línea de comandos"""
-    parser = argparse.ArgumentParser(
-        description="RAG-SQL: Convierte consultas en lenguaje natural a SQL para gestión de voluntarios"
+def setup_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(sys.stdout)]
     )
-    parser.add_argument(
-        "--query", "-q",
-        type=str,
-        help="Consulta en lenguaje natural para procesar"
-    )
-    parser.add_argument(
-        "--schema", "-s",
-        type=str,
-        help="Schema de base de datos a consultar (ej: public, tenant_001, etc.)"
-    )
-    return parser.parse_args()
+    logging.getLogger("openai").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
 
 def main():
-    """Función principal de la aplicación"""
-    args = parse_args()
+    parser = argparse.ArgumentParser(description="RAG-SQL Dinámico")
+    parser.add_argument("--query", "-q", help="Consulta en lenguaje natural")
+    parser.add_argument("--schema", "-s", help="Schema (opcional si DB tiene uno solo)")
+    parser.add_argument("--info", action="store_true", help="Muestra info de la DB")
+    parser.add_argument("--scan", action="store_true", help="Re-escanea la DB")
+    args = parser.parse_args()
     
-    # Solicitar query si no se proporciona
-    query = args.query if args.query else input("Ingresa tu consulta: ")
+    setup_logging()
     
-    # Solicitar schema si no se proporciona
-    schema = args.schema
-    if not schema:
-        print("\n--- Configuración de Schema ---")
-        print("El sistema necesita saber en qué schema buscar las tablas.")
-        print("Ejemplos comunes: public, tenant_001, org_123, etc.")
-        schema = input("Ingresa el schema a consultar (Enter para 'public'): ").strip()
-        if not schema:
-            schema = "public"
+    from application.pipeline import Pipeline, run_pipeline, get_db_info
     
-    logger.info(f"Procesando consulta: '{query}' en schema: '{schema}'")
+    # Modo info
+    if args.info:
+        info = get_db_info()
+        print(f"\n📊 Base de Datos:")
+        print(f"   Schemas: {', '.join(info['schemas'])}")
+        print(f"   Tablas: {info['total_tables']}")
+        print(f"   Auto-schema: {'Sí' if info['single_schema'] else 'No (especificar --schema)'}")
+        return
+    
+    # Modo scan
+    if args.scan:
+        from core.discovery.schema_scanner import SchemaScanner
+        from infrastructure.config.settings import settings
+        
+        scanner = SchemaScanner(settings.db.db_uri)
+        scanner.scan()
+        scanner.save()
+        print(f"\n✅ DB escaneada: {scanner.get_info()}")
+        return
+    
+    # Modo query
+    query = args.query or input("Consulta: ").strip()
+    if not query:
+        print("Error: Query requerida")
+        return
+    
     try:
-        respuesta = full_pipeline(query, schema)
-        print("\n=== RESPUESTA ===")
-        print(respuesta)
+        response = run_pipeline(query, args.schema)
+        print(f"\n{'='*50}")
+        print(f"📝 {query}")
+        print(f"{'='*50}")
+        print(response)
     except Exception as e:
-        logger.exception("Error al procesar consulta")
-        print(f"Error: {str(e)}")
+        logging.error(f"Error: {e}")
+
 
 if __name__ == "__main__":
     main()
