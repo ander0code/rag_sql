@@ -1,5 +1,3 @@
-"""Tests para RAG-SQL dinámico."""
-
 import pytest
 from unittest.mock import Mock
 

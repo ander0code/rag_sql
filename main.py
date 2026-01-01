@@ -1,9 +1,9 @@
-"""RAG-SQL Dinámico."""
-
 import sys
 import logging
 import argparse
-
+from application.pipeline import run_pipeline, get_db_info
+from core.discovery.schema_scanner import SchemaScanner
+from infrastructure.config.settings import settings
 
 def setup_logging():
     logging.basicConfig(
@@ -25,12 +25,10 @@ def main():
     
     setup_logging()
     
-    from application.pipeline import Pipeline, run_pipeline, get_db_info
-    
     # Modo info
     if args.info:
         info = get_db_info()
-        print(f"\n📊 Base de Datos:")
+        print("\n📊 Base de Datos:")
         print(f"   Schemas: {', '.join(info['schemas'])}")
         print(f"   Tablas: {info['total_tables']}")
         print(f"   Auto-schema: {'Sí' if info['single_schema'] else 'No (especificar --schema)'}")
@@ -38,8 +36,6 @@ def main():
     
     # Modo scan
     if args.scan:
-        from core.discovery.schema_scanner import SchemaScanner
-        from infrastructure.config.settings import settings
         
         scanner = SchemaScanner(settings.db.db_uri)
         scanner.scan()

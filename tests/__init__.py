@@ -1,3 +1,1 @@
-"""
-Tests para el proyecto RAG-SQL.
-"""
+# Tests module
