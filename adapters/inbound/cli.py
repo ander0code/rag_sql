@@ -32,7 +32,7 @@ def main():
     if args.info:
         pipeline = get_pipeline()
         info = pipeline.get_info()
-        print("\n📊 Base de Datos:")
+        print("\nBase de Datos:")
         print(f"   Schemas: {', '.join(info['schemas'])}")
         print(f"   Tablas: {info['total_tables']}")
         print(
@@ -45,7 +45,7 @@ def main():
         scanner = SchemaScanner(settings.db.db_uri)
         scanner.scan()
         scanner.save()
-        print(f"\n✅ DB escaneada: {scanner.get_info()}")
+        print(f"\nDB escaneada: {scanner.get_info()}")
         return
 
     # Modo query
@@ -58,7 +58,7 @@ def main():
         pipeline = get_pipeline()
         response, tokens = pipeline.run(query, args.schema)
         print(f"\n{'=' * 50}")
-        print(f"📝 {query}")
+        print(f"Query: {query}")
         print(f"{'=' * 50}")
         print(response)
     except Exception as e:

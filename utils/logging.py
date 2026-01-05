@@ -46,7 +46,9 @@ class TokenCounter:
 
         if settings.debug:
             cost = self._estimate_cost(input_tokens, output_tokens, model)
-            logging.debug(f"🎫 Tokens: {input_tokens}→{output_tokens} (${cost:.6f})")
+            logging.debug(
+                f"Tokens: {input_tokens} in, {output_tokens} out (${cost:.6f})"
+            )
 
         return total
 
@@ -69,5 +71,6 @@ class TokenCounter:
     def reset(self):
         self.total_tokens = 0
         self.calls = []
+
 
 token_counter = TokenCounter()

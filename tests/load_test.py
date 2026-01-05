@@ -150,7 +150,7 @@ class LoadTester:
 
     async def run_load_test(self):
         """Ejecuta el test de carga."""
-        print("\n🚀 Iniciando test de carga...")
+        print("\nIniciando test de carga...")
         print(f"   Usuarios concurrentes: {CONCURRENT_USERS}")
         print(f"   Consultas por usuario: {QUERIES_PER_USER}")
         print(f"   Total consultas: {CONCURRENT_USERS * QUERIES_PER_USER}\n")
@@ -162,11 +162,11 @@ class LoadTester:
             try:
                 async with session.get(f"{API_URL}/health") as resp:
                     if resp.status != 200:
-                        print("❌ API no disponible")
+                        print("[ERROR] API no disponible")
                         return
-                    print("✅ API disponible\n")
+                    print("[OK] API disponible\n")
             except Exception as e:
-                print(f"❌ No se puede conectar a la API: {e}")
+                print(f"[ERROR] No se puede conectar a la API: {e}")
                 return
 
             # Ejecutar usuarios concurrentes
@@ -262,25 +262,25 @@ class LoadTester:
 
         # Imprimir resumen
         print("\n" + "=" * 60)
-        print("📊 REPORTE DE TEST DE CARGA")
+        print("REPORTE DE TEST DE CARGA")
         print("=" * 60)
-        print(f"\n⏱️  Tiempo total: {total_time:.1f}s")
-        print(f"📝 Total consultas: {len(self.results)}")
+        print(f"\nTiempo total: {total_time:.1f}s")
+        print(f"Total consultas: {len(self.results)}")
         print(
-            f"✅ Exitosas: {len(successful)} ({len(successful) / len(self.results) * 100:.1f}%)"
+            f"Exitosas: {len(successful)} ({len(successful) / len(self.results) * 100:.1f}%)"
         )
-        print(f"❌ Fallidas: {len(failed)}")
-        print(f"🎯 Cacheadas: {len(cached)}")
-        print(f"❓ Clarificaciones: {len(clarifications)}")
-        print(f"🔑 Sesiones únicas: {unique_sessions}")
-        print("\n📈 Rendimiento:")
+        print(f"Fallidas: {len(failed)}")
+        print(f"Cacheadas: {len(cached)}")
+        print(f"Clarificaciones: {len(clarifications)}")
+        print(f"Sesiones unicas: {unique_sessions}")
+        print("\nRendimiento:")
         print(f"   Promedio: {avg_time:.2f}s")
         print(f"   P50: {p50:.2f}s")
         print(f"   P95: {p95:.2f}s")
         print(f"   P99: {p99:.2f}s")
         print(f"   QPS: {len(successful) / total_time:.2f}")
-        print(f"\n🎫 Tokens: {total_tokens} total")
-        print(f"\n📁 Reporte guardado: {report_file}")
+        print(f"\nTokens: {total_tokens} total")
+        print(f"\nReporte guardado: {report_file}")
         print("=" * 60)
 
 

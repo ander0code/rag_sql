@@ -122,7 +122,7 @@ class AuditLogger:
 
         # Eventos críticos siempre a consola
         if severity == "critical":
-            logger.warning(f"🚨 SECURITY: {event_type} - {description[:100]}")
+            logger.warning(f"SECURITY: {event_type} - {description[:100]}")
 
     def log_error(
         self,
@@ -168,7 +168,7 @@ class AuditLogger:
         if settings.debug:
             # En desarrollo, log simplificado a consola
             logger.debug(
-                f"📋 Audit: {entry.get('type')} - {entry.get('status', entry.get('event', ''))}"
+                f"Audit: {entry.get('type')} - {entry.get('status', entry.get('event', ''))}"
             )
 
 
