@@ -1,0 +1,689 @@
+{
+  "version": "auto-discovered",
+  "schemas_found": [
+    "public"
+  ],
+  "schemas": [
+    {
+      "schema_text": "Tabla 'Arbitros' en schema public. Columnas: id (TEXT), nombre (TEXT), apellido (TEXT), experiencia (TEXT), telefono (TEXT)...",
+      "metadata": {
+        "table_name": "Arbitros",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "nombre (TEXT)",
+          "apellido (TEXT)",
+          "experiencia (TEXT)",
+          "telefono (TEXT)",
+          "fotoMediaId (CHARACTER VARYING)",
+          "firmaMediaId (CHARACTER VARYING)"
+        ],
+        "enum_columns": {},
+        "related_tables": [
+          "MediaAsset"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'ArbitrosPartido' en schema public. Columnas: id (TEXT), partidoId (TEXT), arbitroId (TEXT), validado (BOOLEAN)...",
+      "metadata": {
+        "table_name": "ArbitrosPartido",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "partidoId (TEXT)",
+          "arbitroId (TEXT)",
+          "validado (BOOLEAN)"
+        ],
+        "enum_columns": {},
+        "related_tables": [
+          "Partido",
+          "Arbitros"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'AsistenciasPartido' en schema public. Columnas: id (TEXT), partidoId (TEXT), equipoId (TEXT), estaListo (BOOLEAN), horaLlegada (TIMESTAMP WITHOUT TIME ZONE)...",
+      "metadata": {
+        "table_name": "AsistenciasPartido",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "partidoId (TEXT)",
+          "equipoId (TEXT)",
+          "estaListo (BOOLEAN)",
+          "horaLlegada (TIMESTAMP WITHOUT TIME ZONE)"
+        ],
+        "enum_columns": {},
+        "related_tables": [
+          "Partido",
+          "Equipos"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'Canchas' en schema public. Columnas: id (TEXT), nombre (TEXT)...",
+      "metadata": {
+        "table_name": "Canchas",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "nombre (TEXT)"
+        ],
+        "enum_columns": {},
+        "related_tables": [],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'Equipos' en schema public. Columnas: id (TEXT), nombre (TEXT), ubicacion (TEXT), estado (ENUM: incompleto, pendiente_validacion, en_regla), color1 (TEXT)...",
+      "metadata": {
+        "table_name": "Equipos",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "nombre (TEXT)",
+          "ubicacion (TEXT)",
+          "estado (ENUM: incompleto, pendiente_validacion, en_regla)",
+          "color1 (TEXT)",
+          "color2 (TEXT)",
+          "delegadoId (TEXT)",
+          "logoMediaId (CHARACTER VARYING)"
+        ],
+        "enum_columns": {
+          "estado": [
+            "incompleto",
+            "pendiente_validacion",
+            "en_regla"
+          ]
+        },
+        "related_tables": [
+          "MediaAsset",
+          "Usuarios"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'EquiposTorneo' en schema public. Columnas: id (TEXT), equipoId (TEXT), torneoId (TEXT)...",
+      "metadata": {
+        "table_name": "EquiposTorneo",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "equipoId (TEXT)",
+          "torneoId (TEXT)"
+        ],
+        "enum_columns": {},
+        "related_tables": [
+          "Torneos",
+          "Equipos"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'EtapaTorneo' en schema public. Columnas: id (TEXT), torneoId (TEXT), tipoEtapa (ENUM: fase_grupos, liguilla, eliminacion), createdAt (TIMESTAMP WITHOUT TIME ZONE), estado (BOOLEAN)...",
+      "metadata": {
+        "table_name": "EtapaTorneo",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "torneoId (TEXT)",
+          "tipoEtapa (ENUM: fase_grupos, liguilla, eliminacion)",
+          "createdAt (TIMESTAMP WITHOUT TIME ZONE)",
+          "estado (BOOLEAN)"
+        ],
+        "enum_columns": {
+          "tipoEtapa": [
+            "fase_grupos",
+            "liguilla",
+            "eliminacion"
+          ]
+        },
+        "related_tables": [
+          "Torneos"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'Fecha' en schema public. Columnas: id (TEXT), etapaId (TEXT), numero (INTEGER), fecha (TIMESTAMP WITHOUT TIME ZONE), createdAt (TIMESTAMP WITHOUT TIME ZONE)...",
+      "metadata": {
+        "table_name": "Fecha",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "etapaId (TEXT)",
+          "numero (INTEGER)",
+          "fecha (TIMESTAMP WITHOUT TIME ZONE)",
+          "createdAt (TIMESTAMP WITHOUT TIME ZONE)",
+          "esVuelta (BOOLEAN)"
+        ],
+        "enum_columns": {},
+        "related_tables": [
+          "EtapaTorneo"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'Grupos' en schema public. Columnas: id (TEXT), etapaId (TEXT), nombre (TEXT), nroOrden (INTEGER), createdAt (TIMESTAMP WITHOUT TIME ZONE)...",
+      "metadata": {
+        "table_name": "Grupos",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "etapaId (TEXT)",
+          "nombre (TEXT)",
+          "nroOrden (INTEGER)",
+          "createdAt (TIMESTAMP WITHOUT TIME ZONE)",
+          "ronda (CHARACTER VARYING)"
+        ],
+        "enum_columns": {},
+        "related_tables": [
+          "EtapaTorneo"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'GruposEquipos' en schema public. Columnas: id (TEXT), grupoId (TEXT), equipoId (TEXT), createdAt (TIMESTAMP WITHOUT TIME ZONE), numeroOrden (INTEGER)...",
+      "metadata": {
+        "table_name": "GruposEquipos",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "grupoId (TEXT)",
+          "equipoId (TEXT)",
+          "createdAt (TIMESTAMP WITHOUT TIME ZONE)",
+          "numeroOrden (INTEGER)"
+        ],
+        "enum_columns": {},
+        "related_tables": [
+          "Grupos",
+          "Equipos"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'HistorialGeneral' en schema public. Columnas: id (TEXT), fechaEvento (TIMESTAMP WITHOUT TIME ZONE), usuarioResponsable (TEXT), tablaAfectada (TEXT), operacion (TEXT)...",
+      "metadata": {
+        "table_name": "HistorialGeneral",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "fechaEvento (TIMESTAMP WITHOUT TIME ZONE)",
+          "usuarioResponsable (TEXT)",
+          "tablaAfectada (TEXT)",
+          "operacion (TEXT)",
+          "descripcion (TEXT)",
+          "datos (JSONB)"
+        ],
+        "enum_columns": {},
+        "related_tables": [
+          "Usuarios"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'Incidencias' en schema public. Columnas: id (TEXT), partidoId (TEXT), jugadorId (TEXT), minuto (INTEGER), equipoId (TEXT)...",
+      "metadata": {
+        "table_name": "Incidencias",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "partidoId (TEXT)",
+          "jugadorId (TEXT)",
+          "minuto (INTEGER)",
+          "equipoId (TEXT)",
+          "nota (TEXT)",
+          "tipo (ENUM: gol, gol_penal, gol_en_contra, amarilla, roja)"
+        ],
+        "enum_columns": {
+          "tipo": [
+            "gol",
+            "gol_penal",
+            "gol_en_contra",
+            "amarilla",
+            "roja",
+            "segunda_amarilla",
+            "cambio_entrada",
+            "cambio_salida",
+            "lesion",
+            "otro"
+          ]
+        },
+        "related_tables": [
+          "Partido",
+          "Jugadores",
+          "Equipos"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'Jugadores' en schema public. Columnas: id (TEXT), nombre (TEXT), apellido (TEXT), dni (TEXT), fechaNacimiento (TIMESTAMP WITHOUT TIME ZONE)...",
+      "metadata": {
+        "table_name": "Jugadores",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "nombre (TEXT)",
+          "apellido (TEXT)",
+          "dni (TEXT)",
+          "fechaNacimiento (TIMESTAMP WITHOUT TIME ZONE)",
+          "fotoCaraMediaId (CHARACTER VARYING)",
+          "fotoMedioCuerpoMediaId (CHARACTER VARYING)",
+          "documentoMediaId (CHARACTER VARYING)",
+          "jugadorDocumentoAId (CHARACTER VARYING)",
+          "jugadorDocumentoBId (CHARACTER VARYING)"
+        ],
+        "enum_columns": {},
+        "related_tables": [
+          "MediaAsset"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'JugadoresEquipos' en schema public. Columnas: id (TEXT), jugadorId (TEXT), equipoId (TEXT), numeroCamiseta (INTEGER), posicion (ENUM: arquero, defensa, mediocampista, delantero)...",
+      "metadata": {
+        "table_name": "JugadoresEquipos",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "jugadorId (TEXT)",
+          "equipoId (TEXT)",
+          "numeroCamiseta (INTEGER)",
+          "posicion (ENUM: arquero, defensa, mediocampista, delantero)",
+          "rolEnEquipo (ENUM: titular, suplente)",
+          "numOrden (INTEGER)",
+          "numLinea (INTEGER)"
+        ],
+        "enum_columns": {
+          "posicion": [
+            "arquero",
+            "defensa",
+            "mediocampista",
+            "delantero"
+          ],
+          "rolEnEquipo": [
+            "titular",
+            "suplente"
+          ]
+        },
+        "related_tables": [
+          "Jugadores",
+          "Equipos"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'JugadoresPartido' en schema public. Columnas: id (TEXT), partidoId (TEXT), jugadorId (TEXT)...",
+      "metadata": {
+        "table_name": "JugadoresPartido",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "partidoId (TEXT)",
+          "jugadorId (TEXT)"
+        ],
+        "enum_columns": {},
+        "related_tables": [
+          "Partido",
+          "Jugadores"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'MediaAsset' en schema public. Columnas: id (TEXT), key (TEXT), kind (ENUM: FACE, SIGNATURE, PHOTO, DOCUMENT), ownerType (TEXT), ownerId (TEXT)...",
+      "metadata": {
+        "table_name": "MediaAsset",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "key (TEXT)",
+          "kind (ENUM: FACE, SIGNATURE, PHOTO, DOCUMENT)",
+          "ownerType (TEXT)",
+          "ownerId (TEXT)",
+          "contentType (TEXT)",
+          "size (INTEGER)",
+          "isPrivate (BOOLEAN)",
+          "createdAt (TIMESTAMP WITHOUT TIME ZONE)",
+          "updatedAt (TIMESTAMP WITHOUT TIME ZONE)"
+        ],
+        "enum_columns": {
+          "kind": [
+            "FACE",
+            "SIGNATURE",
+            "PHOTO",
+            "DOCUMENT"
+          ]
+        },
+        "related_tables": [],
+        "sensitive_columns": [
+          "key",
+          "isPrivate"
+        ],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'Partido' en schema public. Columnas: id (TEXT), fechaId (TEXT), equipoLocalId (TEXT), equipoVisitaId (TEXT), golesLocal (INTEGER)...",
+      "metadata": {
+        "table_name": "Partido",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "fechaId (TEXT)",
+          "equipoLocalId (TEXT)",
+          "equipoVisitaId (TEXT)",
+          "golesLocal (INTEGER)",
+          "golesVisita (INTEGER)",
+          "canchaId (TEXT)",
+          "createdAt (TIMESTAMP WITHOUT TIME ZONE)",
+          "grupoId (TEXT)",
+          "definicion (ENUM: tiempo_reglamentario, tiempo_extra, penales, walkover, por_mesa)",
+          "equipoGanadorId (TEXT)",
+          "inicioProgramadoAt (TEXT)",
+          "penalesLocal (INTEGER)",
+          "penalesVisita (INTEGER)",
+          "estado (ENUM: pendiente, en_juego, finalizado, suspendido)"
+        ],
+        "enum_columns": {
+          "definicion": [
+            "tiempo_reglamentario",
+            "tiempo_extra",
+            "penales",
+            "walkover",
+            "por_mesa"
+          ],
+          "estado": [
+            "pendiente",
+            "en_juego",
+            "finalizado",
+            "suspendido"
+          ]
+        },
+        "related_tables": [
+          "Grupos",
+          "Fecha",
+          "Canchas",
+          "Equipos"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'PartidoEvento' en schema public. Columnas: id (TEXT), partidoId (TEXT), tipo (ENUM: inicio_primer_tiempo, fin_primer_tiempo, inicio_segundo_tiempo, fin_segundo_tiempo, inicio_tiempo_suplementario), timestamp (TIMESTAMP WITHOUT TIME ZONE), usuarioId (TEXT)...",
+      "metadata": {
+        "table_name": "PartidoEvento",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "partidoId (TEXT)",
+          "tipo (ENUM: inicio_primer_tiempo, fin_primer_tiempo, inicio_segundo_tiempo, fin_segundo_tiempo, inicio_tiempo_suplementario)",
+          "timestamp (TIMESTAMP WITHOUT TIME ZONE)",
+          "usuarioId (TEXT)",
+          "nota (TEXT)"
+        ],
+        "enum_columns": {
+          "tipo": [
+            "inicio_primer_tiempo",
+            "fin_primer_tiempo",
+            "inicio_segundo_tiempo",
+            "fin_segundo_tiempo",
+            "inicio_tiempo_suplementario",
+            "fin_tiempo_suplementario",
+            "inicio_penales",
+            "fin_penales",
+            "fin_partido"
+          ]
+        },
+        "related_tables": [
+          "Partido",
+          "Usuarios"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'PenalTiro' en schema public. Columnas: id (TEXT), penalesId (TEXT), equipoId (TEXT), jugadorId (TEXT), orden (INTEGER)...",
+      "metadata": {
+        "table_name": "PenalTiro",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "penalesId (TEXT)",
+          "equipoId (TEXT)",
+          "jugadorId (TEXT)",
+          "orden (INTEGER)",
+          "convertido (BOOLEAN)"
+        ],
+        "enum_columns": {},
+        "related_tables": [
+          "Jugadores",
+          "Equipos",
+          "Penales"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'Penales' en schema public. Columnas: id (TEXT), partidoId (TEXT)...",
+      "metadata": {
+        "table_name": "Penales",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "partidoId (TEXT)"
+        ],
+        "enum_columns": {},
+        "related_tables": [
+          "Partido"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'Reclamos' en schema public. Columnas: id (TEXT), partidoId (TEXT), titulo (TEXT), descripcion (TEXT), usuarioId (TEXT)...",
+      "metadata": {
+        "table_name": "Reclamos",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "partidoId (TEXT)",
+          "titulo (TEXT)",
+          "descripcion (TEXT)",
+          "usuarioId (TEXT)",
+          "estado (ENUM: pendiente, validado, rechazado)",
+          "arbitroId (TEXT)",
+          "createdAt (TIMESTAMP WITH TIME ZONE)",
+          "evidenciaMediaId (CHARACTER VARYING)"
+        ],
+        "enum_columns": {
+          "estado": [
+            "pendiente",
+            "validado",
+            "rechazado"
+          ]
+        },
+        "related_tables": [
+          "Partido",
+          "MediaAsset",
+          "Usuarios",
+          "Arbitros"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'Sanciones' en schema public. Columnas: id (TEXT), jugadorId (TEXT), origenIncidenciaId (TEXT), tipo (TEXT), duracionPartidos (INTEGER)...",
+      "metadata": {
+        "table_name": "Sanciones",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "jugadorId (TEXT)",
+          "origenIncidenciaId (TEXT)",
+          "tipo (TEXT)",
+          "duracionPartidos (INTEGER)",
+          "partidosAplicados (ARRAY)",
+          "fechasAplicadas (ARRAY)",
+          "amarillasAplicadas (ARRAY)",
+          "cumplida (BOOLEAN)",
+          "creadoEn (TIMESTAMP WITHOUT TIME ZONE)",
+          "procesadoPor (TEXT)"
+        ],
+        "enum_columns": {},
+        "related_tables": [
+          "Jugadores"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'Torneos' en schema public. Columnas: id (TEXT), nombre (TEXT), descripcion (TEXT), tipoTorneo (ENUM: completo, simple), fechaInicio (TIMESTAMP WITHOUT TIME ZONE)...",
+      "metadata": {
+        "table_name": "Torneos",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "nombre (TEXT)",
+          "descripcion (TEXT)",
+          "tipoTorneo (ENUM: completo, simple)",
+          "fechaInicio (TIMESTAMP WITHOUT TIME ZONE)",
+          "fechaFin (TIMESTAMP WITHOUT TIME ZONE)",
+          "estado (ENUM: en_curso, inscripcion_abierta, finalizado, suspendido)",
+          "reglas (TEXT)",
+          "cantidadManzanas (INTEGER)",
+          "categoria (TEXT)",
+          "reglasMediaId (CHARACTER VARYING)"
+        ],
+        "enum_columns": {
+          "tipoTorneo": [
+            "completo",
+            "simple"
+          ],
+          "estado": [
+            "en_curso",
+            "inscripcion_abierta",
+            "finalizado",
+            "suspendido"
+          ]
+        },
+        "related_tables": [
+          "MediaAsset"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    },
+    {
+      "schema_text": "Tabla 'Usuarios' en schema public. Columnas: id (TEXT), nombre (TEXT), apellido (TEXT), email (TEXT), username (TEXT)...",
+      "metadata": {
+        "table_name": "Usuarios",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "nombre (TEXT)",
+          "apellido (TEXT)",
+          "email (TEXT)",
+          "username (TEXT)",
+          "dni (TEXT)",
+          "telefono (TEXT)",
+          "password (TEXT)",
+          "fotoMediaId (CHARACTER VARYING)",
+          "firmaMediaId (CHARACTER VARYING)",
+          "rol (ENUM: admin, encargado_mesa, delegado, subdelegado)",
+          "delegadoId (TEXT)"
+        ],
+        "enum_columns": {
+          "rol": [
+            "admin",
+            "encargado_mesa",
+            "delegado",
+            "subdelegado"
+          ]
+        },
+        "related_tables": [
+          "MediaAsset",
+          "Usuarios"
+        ],
+        "sensitive_columns": [
+          "password"
+        ],
+        "is_sensitive_table": true
+      }
+    },
+    {
+      "schema_text": "Tabla 'UsuariosTorneo' en schema public. Columnas: id (TEXT), usuarioId (TEXT), torneoId (TEXT)...",
+      "metadata": {
+        "table_name": "UsuariosTorneo",
+        "schema": "public",
+        "columns": [
+          "id (TEXT)",
+          "usuarioId (TEXT)",
+          "torneoId (TEXT)"
+        ],
+        "enum_columns": {},
+        "related_tables": [
+          "Torneos",
+          "Usuarios"
+        ],
+        "sensitive_columns": [],
+        "is_sensitive_table": true
+      }
+    },
+    {
+      "schema_text": "Tabla '_prisma_migrations' en schema public. Columnas: id (CHARACTER VARYING), checksum (CHARACTER VARYING), finished_at (TIMESTAMP WITH TIME ZONE), migration_name (CHARACTER VARYING), logs (TEXT)...",
+      "metadata": {
+        "table_name": "_prisma_migrations",
+        "schema": "public",
+        "columns": [
+          "id (CHARACTER VARYING)",
+          "checksum (CHARACTER VARYING)",
+          "finished_at (TIMESTAMP WITH TIME ZONE)",
+          "migration_name (CHARACTER VARYING)",
+          "logs (TEXT)",
+          "rolled_back_at (TIMESTAMP WITH TIME ZONE)",
+          "started_at (TIMESTAMP WITH TIME ZONE)",
+          "applied_steps_count (INTEGER)"
+        ],
+        "enum_columns": {},
+        "related_tables": [],
+        "sensitive_columns": [],
+        "is_sensitive_table": false
+      }
+    }
+  ]
+}

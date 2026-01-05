@@ -1,0 +1,1 @@
+# Inbound Adapters - entry points

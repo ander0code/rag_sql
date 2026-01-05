@@ -1,6 +1,7 @@
 import logging
 import tiktoken
-from infrastructure.config.settings import settings
+from config.settings import settings
+
 
 def setup_logging():
     level = logging.DEBUG if settings.debug else logging.INFO
@@ -15,7 +16,6 @@ def setup_logging():
 
 
 class TokenCounter:
-
     def __init__(self):
         try:
             self.encoder = tiktoken.get_encoding("cl100k_base")
