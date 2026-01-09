@@ -1,7 +1,3 @@
-# ===========================================
-# Docker Ignore - RAG SQL
-# ===========================================
-
 # Virtual environments
 .venv/
 venv/
@@ -39,7 +35,7 @@ htmlcov/
 *.swo
 *~
 
-# Environment files (el .env se pasa como variables)
+# Environment files
 .env
 .env.*
 !.env.example
@@ -48,25 +44,17 @@ htmlcov/
 .git/
 .gitignore
 
-# Docker (no copiar configs de docker dentro)
 docker/
 Dockerfile*
 docker-compose*.yml
-
-# Documentation (opcional, puede descomentarse si se necesita)
-# docs/
-# *.md
-# !README.md
 
 # Tests (opcional en producción)
 tests/
 test/
 
-# Datos locales
 data/
 *.db
 *.sqlite
 
-# Misc
 .DS_Store
 Thumbs.db
