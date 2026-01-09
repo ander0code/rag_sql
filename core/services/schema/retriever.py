@@ -2,13 +2,14 @@
 
 import json
 import logging
-from pathlib import Path
 from typing import Optional
 from langchain_core.messages import HumanMessage, SystemMessage
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-CACHE_DIR = Path(__file__).parent.parent.parent / "data" / "schemas"
+# Usar configuración centralizada
+CACHE_DIR = settings.cache_path
 
 
 # Selecciona tablas relevantes usando LLM
@@ -40,7 +41,6 @@ class SchemaRetriever:
             all_tables.extend(tables)
         return cls(llm, all_tables)
 
-    # Selecciona tablas mínimas necesarias para la query
     def get_relevant(self, query: str, target_schema: Optional[str] = None) -> list:
         if not self.schemas:
             logger.error("No hay schemas cargados")
@@ -70,9 +70,20 @@ class SchemaRetriever:
             for s in candidates
         ]
 
-        prompt = f"""Selecciona tablas MÍNIMAS para: {query}
-TABLAS: {json.dumps(tables_info, ensure_ascii=False)}
-Responde JSON: {{"tables": ["tabla1"]}}"""
+        prompt = f"""Eres experto en seleccionar tablas para consultas SQL.
+
+QUERY DEL USUARIO: {query}
+
+TABLAS DISPONIBLES:
+{json.dumps(tables_info, ensure_ascii=False, indent=2)}
+
+REGLAS:
+1. Selecciona SOLO las tablas necesarias (mínimo posible)
+2. Incluye tablas relacionadas si se necesitan JOINs
+3. Prioriza tablas que contienen los datos solicitados directamente
+4. Máximo 4 tablas por consulta
+
+Responde SOLO con JSON: {{"tables": ["tabla1", "tabla2"]}}"""
 
         try:
             response = self.llm.invoke(
@@ -91,7 +102,63 @@ Responde JSON: {{"tables": ["tabla1"]}}"""
             logger.warning(f"LLM falló: {e}")
             return self._fallback(query, candidates)
 
-    # Fallback: busca menciones directas en la query
+    async def aget_relevant(
+        self, query: str, top_k: int = 5, target_schema: str = None
+    ) -> list:
+        """Versión asíncrona de get_relevant"""
+        candidates = [
+            s
+            for s in self.schemas
+            if not target_schema or s["metadata"].get("schema") == target_schema
+        ][:top_k]
+
+        if not candidates:
+            return []
+
+        if len(candidates) == 1:
+            return self.expand(candidates)
+
+        tables_info = [
+            {
+                "table": s["metadata"]["table_name"],
+                "schema": s["metadata"].get("schema", "public"),
+                "cols": s["metadata"].get("columns", [])[:5],
+            }
+            for s in candidates
+        ]
+
+        prompt = f"""Eres experto en seleccionar tablas para consultas SQL.
+
+QUERY DEL USUARIO: {query}
+
+TABLAS DISPONIBLES:
+{json.dumps(tables_info, ensure_ascii=False, indent=2)}
+
+REGLAS:
+1. Selecciona SOLO las tablas necesarias (mínimo posible)
+2. Incluye tablas relacionadas si se necesitan JOINs
+3. Prioriza tablas que contienen los datos solicitados directamente
+4. Máximo 4 tablas por consulta
+
+Responde SOLO con JSON: {{"tables": ["tabla1", "tabla2"]}}"""
+
+        try:
+            response = await self.llm.ainvoke(
+                [
+                    SystemMessage(content="Experto SQL. Solo JSON."),
+                    HumanMessage(content=prompt),
+                ]
+            )
+            clean = response.content.replace("```json", "").replace("```", "").strip()
+            names = json.loads(clean).get("tables", [])
+            logger.info(f"Seleccionadas (async): {names}")
+
+            selected = [s for s in candidates if s["metadata"]["table_name"] in names]
+            return selected if selected else self._fallback(query, candidates)
+        except Exception as e:
+            logger.warning(f"LLM async falló: {e}")
+            return self._fallback(query, candidates)
+
     def _fallback(self, query: str, candidates: list) -> list:
         q = query.lower()
         for s in candidates:
@@ -101,13 +168,11 @@ Responde JSON: {{"tables": ["tabla1"]}}"""
 
         return [candidates[0]] if candidates else []
 
-    # Busca una tabla por nombre
     def get_by_name(self, name: str):
         return next(
             (s for s in self.schemas if s["metadata"]["table_name"] == name), None
         )
 
-    # Expande selección con tablas relacionadas
     def expand(self, schemas: list) -> list:
         result = {s["metadata"]["table_name"]: s for s in schemas}
         for s in schemas:
@@ -118,6 +183,5 @@ Responde JSON: {{"tables": ["tabla1"]}}"""
                         result[rel] = found
         return list(result.values())
 
-    # Lista schemas únicos disponibles
     def get_available_schemas(self) -> list:
         return list(set(s["metadata"].get("schema", "public") for s in self.schemas))

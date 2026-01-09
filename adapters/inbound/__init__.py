@@ -1,1 +1,1 @@
-# Inbound Adapters - entry points
+# Adaptadores de entrada - puntos de entrada

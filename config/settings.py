@@ -102,13 +102,36 @@ class DatabaseSettings(BaseSettings):
         return url
 
 
-# Configuración de APIs de LLM
 class AISettings(BaseSettings):
-    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    # Proveedor principal
+    llm_provider: str = os.getenv("LLM_PROVIDER", "deepseek")
+    llm_model: str = os.getenv("LLM_MODEL", "")  # Si vacío, usa default del proveedor
+
+    # API Keys por proveedor
     deepseek_api_key: str = os.getenv("DEEPSEEK_API_KEY", "")
-    deepseek_model: str = "deepseek-chat"
-    openai_model: str = "gpt-4o-mini"
-    temperature: float = 0.0
+    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
+    groq_api_key: str = os.getenv("GROQ_API_KEY", "")
+    google_api_key: str = os.getenv("GOOGLE_API_KEY", "")
+
+    # Ollama (local)
+    ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
+    # Modelos por defecto
+    deepseek_model: str = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    anthropic_model: str = os.getenv("ANTHROPIC_MODEL", "claude-3-haiku-20240307")
+    groq_model: str = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")
+    google_model: str = os.getenv("GOOGLE_MODEL", "gemini-1.5-flash")
+    ollama_model: str = os.getenv("OLLAMA_MODEL", "llama3.2")
+
+    # Parámetros
+    temperature: float = float(os.getenv("AI_TEMPERATURE", "0.0"))
+
+    # Control de tokens
+    max_tokens_response: int = int(os.getenv("MAX_TOKENS_RESPONSE", "500"))
+    max_tokens_sql: int = int(os.getenv("MAX_TOKENS_SQL", "200"))
+    max_tokens_per_minute: int = int(os.getenv("MAX_TOKENS_PER_MINUTE", "100000"))
 
 
 class LogSettings(BaseSettings):
@@ -121,12 +144,28 @@ class Settings(BaseSettings):
     debug: bool = os.getenv("DEBUG", "true").lower() == "true"
 
     redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379")
+    qdrant_url: str = os.getenv("QDRANT_URL", "http://localhost:6333")
     session_ttl: int = int(os.getenv("SESSION_TTL", "1800"))
     max_history: int = int(os.getenv("MAX_HISTORY", "10"))
+
+    # Paths
+    cache_dir: str = os.getenv("CACHE_DIR", "data/schemas")
+
+    # Pipeline
+    max_sql_retries: int = int(os.getenv("MAX_SQL_RETRIES", "4"))
+
+    # Rate Limiting
+    rate_limit_requests: int = int(os.getenv("RATE_LIMIT_REQUESTS", "30"))
+    rate_limit_window_seconds: int = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
 
     db: DatabaseSettings = DatabaseSettings()
     ai: AISettings = AISettings()
     logs: LogSettings = LogSettings()
+
+    @property
+    def cache_path(self) -> Path:
+        """Retorna el path absoluto del directorio de cache"""
+        return BASE_DIR / self.cache_dir
 
 
 settings = Settings()

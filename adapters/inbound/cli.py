@@ -1,21 +1,11 @@
-# CLI Adapter - Entry point por línea de comandos
+# Adaptador CLI - Punto de entrada por línea de comandos
 
-import sys
 import logging
 import argparse
 from adapters.factory import get_pipeline
-from core.services.schema_scanner import SchemaScanner
+from core.services.schema import SchemaScanner
 from config.settings import settings
-
-
-def setup_logging():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler(sys.stdout)],
-    )
-    logging.getLogger("openai").setLevel(logging.WARNING)
-    logging.getLogger("httpx").setLevel(logging.WARNING)
+from utils.logging import setup_logging
 
 
 def main():
@@ -27,6 +17,7 @@ def main():
     args = parser.parse_args()
 
     setup_logging()
+    logger = logging.getLogger(__name__)
 
     # Modo info
     if args.info:
@@ -62,7 +53,7 @@ def main():
         print(f"{'=' * 50}")
         print(response)
     except Exception as e:
-        logging.error(f"Error: {e}")
+        logger.error(f"Error: {e}")
 
 
 if __name__ == "__main__":

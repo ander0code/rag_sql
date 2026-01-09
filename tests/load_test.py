@@ -3,16 +3,17 @@ import asyncio
 import aiohttp
 import time
 import json
+import os
 import random
 from datetime import datetime
 from pathlib import Path
 from dataclasses import dataclass
 from typing import List
 
-# Configuración
-API_URL = "http://localhost:8000"
-CONCURRENT_USERS = 20  # Reducido para no saturar el LLM
-QUERIES_PER_USER = 3
+# Configuración - Lee de variable de entorno o usa default
+API_URL = os.getenv("RAG_SQL_API_URL", "http://localhost:8000")
+CONCURRENT_USERS = int(os.getenv("LOAD_TEST_USERS", "20"))
+QUERIES_PER_USER = int(os.getenv("LOAD_TEST_QUERIES", "3"))
 REPORT_DIR = Path(__file__).parent / "reports"
 
 # Preguntas basadas en el schema de Interbarrios

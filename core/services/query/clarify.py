@@ -1,8 +1,8 @@
-# Clarify Agent - Aclara ambigüedades consultando la DB
+# Agente de clarificación - Aclara ambigüedades consultando la DB
 
 import logging
 from typing import List, Dict, Optional, Tuple
-from core.services.sql_executor import QueryExecutor
+from core.services.sql.executor import QueryExecutor
 
 logger = logging.getLogger(__name__)
 

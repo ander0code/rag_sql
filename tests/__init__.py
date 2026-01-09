@@ -1,1 +1,1 @@
-# Tests module
+# Módulo de pruebas

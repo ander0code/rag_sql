@@ -39,8 +39,8 @@
         ],
         "enum_columns": {},
         "related_tables": [
-          "Partido",
-          "Arbitros"
+          "Arbitros",
+          "Partido"
         ],
         "sensitive_columns": [],
         "is_sensitive_table": false
@@ -60,8 +60,8 @@
         ],
         "enum_columns": {},
         "related_tables": [
-          "Partido",
-          "Equipos"
+          "Equipos",
+          "Partido"
         ],
         "sensitive_columns": [],
         "is_sensitive_table": false
@@ -105,8 +105,8 @@
           ]
         },
         "related_tables": [
-          "MediaAsset",
-          "Usuarios"
+          "Usuarios",
+          "MediaAsset"
         ],
         "sensitive_columns": [],
         "is_sensitive_table": false
@@ -124,8 +124,8 @@
         ],
         "enum_columns": {},
         "related_tables": [
-          "Torneos",
-          "Equipos"
+          "Equipos",
+          "Torneos"
         ],
         "sensitive_columns": [],
         "is_sensitive_table": false
@@ -213,8 +213,8 @@
         ],
         "enum_columns": {},
         "related_tables": [
-          "Grupos",
-          "Equipos"
+          "Equipos",
+          "Grupos"
         ],
         "sensitive_columns": [],
         "is_sensitive_table": false
@@ -271,9 +271,9 @@
           ]
         },
         "related_tables": [
-          "Partido",
+          "Equipos",
           "Jugadores",
-          "Equipos"
+          "Partido"
         ],
         "sensitive_columns": [],
         "is_sensitive_table": false
@@ -317,7 +317,12 @@
           "posicion (ENUM: arquero, defensa, mediocampista, delantero)",
           "rolEnEquipo (ENUM: titular, suplente)",
           "numOrden (INTEGER)",
-          "numLinea (INTEGER)"
+          "numLinea (INTEGER)",
+          "activo (BOOLEAN)",
+          "fechaIngreso (TIMESTAMP WITHOUT TIME ZONE)",
+          "fechaBaja (TIMESTAMP WITHOUT TIME ZONE)",
+          "fueTransferido (BOOLEAN)",
+          "equipoOrigenId (UUID)"
         ],
         "enum_columns": {
           "posicion": [
@@ -332,8 +337,8 @@
           ]
         },
         "related_tables": [
-          "Jugadores",
-          "Equipos"
+          "Equipos",
+          "Jugadores"
         ],
         "sensitive_columns": [],
         "is_sensitive_table": false
@@ -351,8 +356,8 @@
         ],
         "enum_columns": {},
         "related_tables": [
-          "Partido",
-          "Jugadores"
+          "Jugadores",
+          "Partido"
         ],
         "sensitive_columns": [],
         "is_sensitive_table": false
@@ -429,10 +434,10 @@
           ]
         },
         "related_tables": [
-          "Grupos",
-          "Fecha",
+          "Equipos",
           "Canchas",
-          "Equipos"
+          "Grupos",
+          "Fecha"
         ],
         "sensitive_columns": [],
         "is_sensitive_table": false
@@ -461,12 +466,14 @@
             "fin_tiempo_suplementario",
             "inicio_penales",
             "fin_penales",
-            "fin_partido"
+            "fin_partido",
+            "inicio_descanso",
+            "fin_descanso"
           ]
         },
         "related_tables": [
-          "Partido",
-          "Usuarios"
+          "Usuarios",
+          "Partido"
         ],
         "sensitive_columns": [],
         "is_sensitive_table": false
@@ -487,9 +494,9 @@
         ],
         "enum_columns": {},
         "related_tables": [
-          "Jugadores",
           "Equipos",
-          "Penales"
+          "Penales",
+          "Jugadores"
         ],
         "sensitive_columns": [],
         "is_sensitive_table": false
@@ -536,10 +543,10 @@
           ]
         },
         "related_tables": [
-          "Partido",
-          "MediaAsset",
           "Usuarios",
-          "Arbitros"
+          "MediaAsset",
+          "Arbitros",
+          "Partido"
         ],
         "sensitive_columns": [],
         "is_sensitive_table": false
@@ -636,8 +643,8 @@
           ]
         },
         "related_tables": [
-          "MediaAsset",
-          "Usuarios"
+          "Usuarios",
+          "MediaAsset"
         ],
         "sensitive_columns": [
           "password"

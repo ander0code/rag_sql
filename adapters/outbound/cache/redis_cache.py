@@ -1,4 +1,4 @@
-# Cliente Redis wrapper con JSON serialization
+# Cliente Redis con serialización JSON
 
 import json
 import logging
@@ -9,7 +9,7 @@ from config.settings import settings
 logger = logging.getLogger(__name__)
 
 
-# Wrapper de Redis con serialización JSON automática
+# Cliente Redis con serialización JSON automática
 class RedisClient:
     def __init__(self):
         self.client = None

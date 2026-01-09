@@ -6,10 +6,7 @@ from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
-
-# ============================================================================
-# SYSTEM PROMPT ESTRICTO
-# ============================================================================
+# SYSTEM PROMPT
 
 STRICT_SYSTEM_PROMPT = """Eres un asistente de consultas de base de datos. Tu ÚNICO propósito es:
 1. Ayudar a los usuarios a consultar datos de la base de datos
@@ -35,9 +32,7 @@ def get_strict_system_prompt(schema_info: str = "") -> str:
     )
 
 
-# ============================================================================
 # TOPIC DETECTOR - Rechaza preguntas fuera del dominio
-# ============================================================================
 
 OFF_TOPIC_PATTERNS = [
     # Código/Programación general
@@ -112,9 +107,7 @@ class TopicDetector:
         return True, ""
 
 
-# ============================================================================
 # OUTPUT VALIDATOR - Verifica que la respuesta sea apropiada
-# ============================================================================
 
 FORBIDDEN_OUTPUT_PATTERNS = [
     # Código ejecutable
@@ -166,9 +159,7 @@ class OutputValidator:
         return output
 
 
-# ============================================================================
 # SINGLETONS
-# ============================================================================
 
 _topic_detector = None
 _output_validator = None

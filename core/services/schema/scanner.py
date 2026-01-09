@@ -2,13 +2,14 @@
 
 import json
 import logging
-from pathlib import Path
 from typing import Optional
-from core.services.sql_executor import QueryExecutor
+from core.services.sql.executor import QueryExecutor
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-CACHE_DIR = Path(__file__).parent.parent.parent / "data" / "schemas"
+# Usar configuración centralizada
+CACHE_DIR = settings.cache_path
 
 
 # Escanea la estructura de la base de datos PostgreSQL
@@ -17,7 +18,6 @@ class SchemaScanner:
         self.executor = QueryExecutor(db_uri)
         self.schemas_data = {}
 
-    # Escanea todos los schemas o uno específico
     def scan(self, target_schema: Optional[str] = None) -> dict:
         schemas = self._get_user_schemas()
 
@@ -42,7 +42,6 @@ class SchemaScanner:
 
         return self.schemas_data
 
-    # Obtiene schemas del usuario (excluye system schemas)
     def _get_user_schemas(self) -> list:
         try:
             result = self.executor.execute("""
@@ -56,14 +55,16 @@ class SchemaScanner:
             logger.error(f"Error al obtener schemas: {e}")
             return []
 
-    # Escanea todas las tablas de un schema
     def _scan_schema(self, schema: str) -> list:
         tables = []
 
-        result = self.executor.execute(f"""
+        result = self.executor.execute(
+            """
             SELECT table_name FROM information_schema.tables 
-            WHERE table_schema = '{schema}' AND table_type = 'BASE TABLE'
-        """)
+            WHERE table_schema = %s AND table_type = 'BASE TABLE'
+            """,
+            params=(schema,),
+        )
 
         for (table_name,) in result.get("data", []):
             table_info = self._scan_table(schema, table_name)
@@ -73,14 +74,16 @@ class SchemaScanner:
         logger.info(f"Schema '{schema}': {len(tables)} tablas")
         return tables
 
-    # Escanea columnas, ENUMs, FKs y detecta datos sensibles
     def _scan_table(self, schema: str, table: str) -> dict:
-        cols_result = self.executor.execute(f"""
+        cols_result = self.executor.execute(
+            """
             SELECT c.column_name, c.data_type, c.udt_name
             FROM information_schema.columns c
-            WHERE c.table_schema = '{schema}' AND c.table_name = '{table}'
+            WHERE c.table_schema = %s AND c.table_name = %s
             ORDER BY c.ordinal_position
-        """)
+            """,
+            params=(schema, table),
+        )
 
         columns = []
         enum_columns = {}
@@ -99,7 +102,8 @@ class SchemaScanner:
             else:
                 columns.append(f"{col_name} ({data_type.upper()})")
 
-        fk_result = self.executor.execute(f"""
+        fk_result = self.executor.execute(
+            """
             SELECT kcu.column_name, ccu.table_name AS foreign_table
             FROM information_schema.table_constraints tc
             JOIN information_schema.key_column_usage kcu 
@@ -107,8 +111,10 @@ class SchemaScanner:
             JOIN information_schema.constraint_column_usage ccu 
                 ON ccu.constraint_name = tc.constraint_name
             WHERE tc.constraint_type = 'FOREIGN KEY' 
-            AND tc.table_schema = '{schema}' AND tc.table_name = '{table}'
-        """)
+            AND tc.table_schema = %s AND tc.table_name = %s
+            """,
+            params=(schema, table),
+        )
 
         related = list(set(r[1] for r in fk_result.get("data", [])))
 
@@ -127,7 +133,6 @@ class SchemaScanner:
             },
         }
 
-    # Detecta columnas sensibles por su nombre
     def _is_sensitive_column(self, col_name: str) -> bool:
         col_lower = col_name.lower()
 
@@ -159,7 +164,6 @@ class SchemaScanner:
 
         return any(pattern in col_lower for pattern in sensitive_patterns)
 
-    # Detecta tablas sensibles por su nombre
     def _is_sensitive_table(self, table_name: str) -> bool:
         table_lower = table_name.lower()
 
@@ -188,7 +192,6 @@ class SchemaScanner:
 
         return any(pattern in table_lower for pattern in sensitive_patterns)
 
-    # Obtiene valores de un ENUM de PostgreSQL
     def _get_enum_values(self, enum_name: str) -> list:
         result = self.executor.execute(f"""
             SELECT e.enumlabel
@@ -199,7 +202,6 @@ class SchemaScanner:
         """)
         return [r[0] for r in result.get("data", [])]
 
-    # Guarda los schemas descubiertos en JSON
     def save(self, filename: str = "discovered_schemas.json"):
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         path = CACHE_DIR / filename
@@ -220,7 +222,6 @@ class SchemaScanner:
         logger.info(f"Guardado: {path} ({len(all_tables)} tablas)")
         return path
 
-    # Retorna resumen de lo escaneado
     def get_info(self) -> dict:
         return {
             "schemas": list(self.schemas_data.keys()),

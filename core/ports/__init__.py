@@ -1,4 +1,4 @@
-# Core Ports - Interfaces for external dependencies
+# Puertos del núcleo - Interfaces para dependencias externas
 
 from core.ports.database_port import DatabasePort
 from core.ports.llm_port import LLMPort

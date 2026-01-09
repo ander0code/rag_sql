@@ -2,6 +2,7 @@
 
 import psycopg2
 from contextlib import contextmanager
+from typing import Optional, Tuple, Dict, Any
 import logging
 
 logger = logging.getLogger(__name__)
@@ -24,12 +25,24 @@ class QueryExecutor:
             cursor.close()
             conn.close()
 
-    # Ejecuta query y retorna columns + data
-    def execute(self, query: str, timeout: int = 10) -> dict:
+    def execute(
+        self, query: str, params: Optional[Tuple] = None, timeout: int = 10
+    ) -> Dict[str, Any]:
+        """
+        Ejecuta query con parámetros opcionales.
+
+        Args:
+            query: SQL query (usar %s para parámetros)
+            params: Tupla de parámetros (opcional)
+            timeout: Timeout en segundos
+
+        Returns:
+            dict con columns y data, o error
+        """
         try:
             with self.get_cursor() as cursor:
                 cursor.execute(f"SET statement_timeout = {timeout * 1000};")
-                cursor.execute(query)
+                cursor.execute(query, params)
                 return {
                     "columns": [d[0] for d in cursor.description],
                     "data": cursor.fetchall(),
@@ -38,7 +51,6 @@ class QueryExecutor:
             logger.error(f"Error SQL: {e}")
             return {"error": str(e)}
 
-    # Verifica qué tablas existen en un schema
     def check_tables(self, schema: str, tables: list) -> dict:
         try:
             with self.get_cursor() as cursor:
@@ -59,7 +71,6 @@ class QueryExecutor:
         except Exception as e:
             return {"existing": [], "missing": tables, "error": str(e)}
 
-    # Obtiene lista de schemas de la DB
     def get_schemas(self) -> list:
         try:
             with self.get_cursor() as cursor:

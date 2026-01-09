@@ -22,7 +22,6 @@ class QueryRewriter:
     def __init__(self, llm):
         self.llm = llm
 
-    # Reescribe la query si es necesario
     def rewrite(self, query: str) -> str:
         # Queries cortas no necesitan reescritura
         if len(query.split()) <= 4:

@@ -5,6 +5,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 
 from core.ports.semantic_cache_port import SemanticCachePort
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +18,8 @@ VECTOR_SIZE = 384
 class SemanticCache(SemanticCachePort):
     """Implementación de SemanticCachePort usando Qdrant"""
 
-    def __init__(self, qdrant_url: str = "http://localhost:6333"):
-        self.qdrant_url = qdrant_url
+    def __init__(self, qdrant_url: str = None):
+        self.qdrant_url = qdrant_url or settings.qdrant_url
         self._client = None
         self._embedder = None
         self._initialized = False

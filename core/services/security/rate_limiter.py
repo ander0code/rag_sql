@@ -149,9 +149,7 @@ class LLMThrottler:
             return True, ""  # Fail open
 
 
-# ============================================================================
 # SINGLETONS
-# ============================================================================
 
 _rate_limiter: Optional[RateLimiter] = None
 _llm_throttler: Optional[LLMThrottler] = None

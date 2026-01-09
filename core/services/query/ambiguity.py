@@ -48,7 +48,6 @@ class AmbiguityDetector:
         self._tables_info = ""
         self._valid_tables = []
 
-    # Configura el detector con las tablas del schema
     def set_schema_info(self, tables: List[Dict]):
         self._valid_tables = []
         table_lines = []
@@ -65,7 +64,6 @@ class AmbiguityDetector:
             "\n".join(table_lines) if table_lines else "Schema no disponible"
         )
 
-    # Analiza si la query es ambigua, retorna (is_ambiguous, entity_type, question)
     def check(self, query: str, context: str = "") -> Tuple[bool, str, str]:
         prompt = AMBIGUITY_PROMPT.format(
             query=query,
@@ -109,7 +107,6 @@ class AmbiguityDetector:
             logger.warning(f"Error en ambiguity check: {e}")
             return False, "", ""
 
-    # Verifica si la entidad mencionada existe en el schema
     def _is_valid_entity(self, entity: str) -> bool:
         if not self._valid_tables:
             return True
@@ -122,6 +119,5 @@ class AmbiguityDetector:
 
         return False
 
-    # Retorna lista de tablas válidas del schema
     def get_valid_tables(self) -> List[str]:
         return self._valid_tables.copy()

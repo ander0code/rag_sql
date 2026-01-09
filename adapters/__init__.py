@@ -1,1 +1,1 @@
-# Adapters package
+# Paquete de adaptadores

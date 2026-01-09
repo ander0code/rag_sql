@@ -2,20 +2,20 @@
 
 import time
 import logging
-from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
 
 from core.ports.llm_port import LLMPort
 from core.ports.semantic_cache_port import SemanticCachePort
-from core.services.schema_scanner import SchemaScanner
-from core.services.schema_retriever import SchemaRetriever
+from core.services.schema import SchemaScanner, SchemaRetriever
 from core.services.security import is_safe_sql
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-CACHE_DIR = Path(__file__).parent.parent.parent / "data" / "schemas"
+# Usar configuración centralizada
+CACHE_DIR = settings.cache_path
 CACHE_FILE = CACHE_DIR / "discovered_schemas.json"
-MAX_RETRIES = 4
+MAX_RETRIES = settings.max_sql_retries
 
 
 class Pipeline:
@@ -144,7 +144,7 @@ class Pipeline:
         tokens_used = 0
 
         if not self.retriever or not self.retriever.schemas:
-            return "Error: No hay schemas. Ejecuta: python main.py --scan", None
+            return "No tengo información sobre la base de datos. El administrador debe ejecutar el escaneo inicial.", None
 
         # Resolver schema
         if not schema:
@@ -179,7 +179,7 @@ class Pipeline:
         # 4. Recuperar tablas relevantes
         relevant = self.retriever.get_relevant(query, target_schema=schema)
         if not relevant:
-            return "Error: No se encontraron tablas relevantes.", None
+            return "No encontré tablas relacionadas con tu consulta. ¿Podrías reformularla o ser más específico?", None
 
         # 5. Generar y ejecutar SQL con retry
         result = None
@@ -192,7 +192,7 @@ class Pipeline:
             )
 
             if not is_safe_sql(sql):
-                return "Error: SQL no seguro.", None
+                return "Por seguridad, solo puedo realizar consultas de lectura. No es posible modificar, eliminar o alterar datos de la base de datos.", None
 
             result = self.executor.execute(sql)
 
@@ -203,7 +203,7 @@ class Pipeline:
                 logger.warning(f"Retry {attempt + 1}: {last_error[:80]}")
 
                 if attempt == MAX_RETRIES - 1:
-                    return f"Error SQL: {last_error}", tokens_used
+                    return "Hubo un problema al consultar la base de datos. Por favor, intenta reformular tu pregunta.", tokens_used
 
         # 6. Generar respuesta natural
         response = self.response_gen.generate(original_query, result)
@@ -242,3 +242,101 @@ class Pipeline:
             "total_tables": len(self.retriever.schemas) if self.retriever else 0,
             "single_schema": len(self._available_schemas) == 1,
         }
+
+    async def arun(
+        self,
+        query: str,
+        schema: Optional[str] = None,
+        context: str = "",
+        skip_enhancement: bool = False,
+    ) -> Tuple[str, Optional[int]]:
+        """
+        Versión asíncrona del flujo completo.
+        Usa ainvoke del LLM para operaciones no bloqueantes.
+
+        Args:
+            query: Consulta del usuario
+            schema: Schema de DB (opcional)
+            context: Contexto de conversación anterior
+            skip_enhancement: Saltar mejora de query
+
+        Returns:
+            (respuesta, tokens_usados)
+        """
+        total_start = time.time()
+        tokens_used = 0
+
+        if not self.retriever or not self.retriever.schemas:
+            return "No tengo información sobre la base de datos. El administrador debe ejecutar el escaneo inicial.", None
+
+        # Resolver schema
+        if not schema:
+            if len(self._available_schemas) == 1:
+                schema = self._available_schemas[0]
+            else:
+                return (
+                    f"Especifica schema. Disponibles: {', '.join(self._available_schemas)}",
+                    None,
+                )
+
+        # 1. Mejorar query (async)
+        if not skip_enhancement:
+            enhanced_query = await self.query_enhancer.aenhance(query, context)
+            if enhanced_query != query:
+                logger.info(f"Query mejorada: '{query}' → '{enhanced_query}'")
+            query = enhanced_query
+
+        # 2. Reescribir para normalizar
+        original_query = query
+        query = self.query_rewriter.rewrite(query)
+
+        # 3. Verificar cache semántico
+        if self.semantic_cache.is_available():
+            semantic_hit = self.semantic_cache.search(query)
+            if semantic_hit:
+                logger.info(f"Semantic Cache HIT (score: {semantic_hit['score']:.3f})")
+                return semantic_hit["result"], 0
+
+        logger.info(f"Query: '{query}'")
+
+        # 4. Recuperar tablas relevantes (async)
+        relevant = await self.retriever.aget_relevant(query, target_schema=schema)
+        if not relevant:
+            return "No encontré tablas relacionadas con tu consulta. ¿Podrías reformularla o ser más específico?", None
+
+        # 5. Generar y ejecutar SQL con retry
+        result = None
+        last_error = None
+        sql = None
+
+        for attempt in range(MAX_RETRIES):
+            sql = await self.sql_gen.agenerate(
+                query, relevant, schema, previous_error=last_error
+            )
+
+            if not is_safe_sql(sql):
+                return "Por seguridad, solo puedo realizar consultas de lectura. No es posible modificar, eliminar o alterar datos de la base de datos.", None
+
+            result = self.executor.execute(sql)
+
+            if "error" not in result:
+                break
+            else:
+                last_error = result["error"]
+                logger.warning(f"Retry {attempt + 1}: {last_error[:80]}")
+
+                if attempt == MAX_RETRIES - 1:
+                    return "Hubo un problema al consultar la base de datos. Por favor, intenta reformular tu pregunta.", tokens_used
+
+        # 6. Generar respuesta natural (async)
+        response = await self.response_gen.agenerate(original_query, result)
+
+        # 7. Guardar en cache semántico
+        if self.semantic_cache.is_available():
+            tables_used = [s["metadata"]["table_name"] for s in relevant]
+            self.semantic_cache.save(query, sql, response, tables_used)
+
+        total_time = time.time() - total_start
+        logger.info(f"Total (async): {total_time:.1f}s")
+
+        return response, tokens_used

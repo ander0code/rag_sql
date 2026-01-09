@@ -1,44 +1,55 @@
-# 🔷 RAG-SQL - Flujo Principal
+# Flujo de Procesamiento RAG-SQL
 
-## Diagrama de Flujo Completo
+## Descripción
+
+RAG-SQL implementa Retrieval-Augmented Generation especializado en bases de datos:
+
+- **Retrieval**: Recupera schemas de tablas relevantes para la consulta
+- **Augmented**: Aumenta el contexto del LLM con metadatos de la DB
+- **Generation**: Genera SQL y respuestas en lenguaje natural
+
+---
+
+## Diagrama de Flujo
 
 ```mermaid
 flowchart TD
-    subgraph ENTRADA["🔵 ENTRADA"]
-        U[Usuario envía query]
-        CLI[CLI: main.py]
-        API[API: FastAPI]
+    subgraph entrada[Entrada]
+        U[Usuario]
+        CLI[CLI]
+        API[API REST]
     end
 
-    subgraph SEGURIDAD["🔴 SEGURIDAD"]
-        RL[RateLimiter<br/>30 req/min por IP]
-        IS[InputSanitizer<br/>Limpia caracteres]
-        PG[PromptGuard<br/>Detecta injection]
+    subgraph seguridad[Seguridad]
+        RL[RateLimiter]
+        IS[InputSanitizer]
+        PG[PromptGuard]
+        TD[TopicDetector]
     end
 
-    subgraph PROCESAMIENTO["🟡 PROCESAMIENTO DE QUERY"]
-        QE[QueryEnhancer<br/>Mejora redacción]
-        QR[QueryRewriter<br/>Normaliza texto]
-        AD[AmbiguityDetector<br/>¿Falta info?]
-        CA[ClarifyAgent<br/>Opciones de DB]
+    subgraph procesamiento[Procesamiento]
+        QE[QueryEnhancer]
+        QR[QueryRewriter]
+        AD[AmbiguityDetector]
+        CA[ClarifyAgent]
     end
 
-    subgraph CACHE["🟢 CACHE"]
-        SC[SemanticCache<br/>Qdrant]
-        RC[Redis<br/>Sesiones]
+    subgraph cache[Cache]
+        SC[SemanticCache - Qdrant]
+        RC[SessionCache - Redis]
     end
 
-    subgraph RAG["🔷 RAG CORE"]
-        SR[SchemaRetriever<br/>Selecciona tablas via LLM]
-        SG[SQLGenerator<br/>Genera SQL via LLM]
-        SV[SQLValidator<br/>Valida seguridad SQL]
-        QX[QueryExecutor<br/>Ejecuta en PostgreSQL]
-        RG[ResponseGenerator<br/>Respuesta natural via LLM]
+    subgraph rag[RAG Core]
+        SR[SchemaRetriever]
+        SG[SQLGenerator]
+        SV[SQLValidator]
+        QX[QueryExecutor]
+        RG[ResponseGenerator]
     end
 
-    subgraph CONTEXTO["🟣 CONTEXTO"]
-        SM[SessionManager<br/>Historial en Redis]
-        CS[ContextSummarizer<br/>Resume chats largos]
+    subgraph contexto[Contexto]
+        SM[SessionManager]
+        CS[ContextSummarizer]
     end
 
     U --> CLI & API
@@ -46,8 +57,10 @@ flowchart TD
     RL -->|OK| IS
     RL -->|Excedido| E1[Error 429]
     IS --> PG
-    PG -->|Injection| E2[Error: Rechazado]
-    PG -->|OK| QE
+    PG -->|Injection| E2[Error 403]
+    PG -->|OK| TD
+    TD -->|Off-topic| E4[Error 400]
+    TD -->|OK| QE
     QE --> QR
     QR --> AD
     AD -->|Ambiguo| CA
@@ -57,19 +70,19 @@ flowchart TD
     SC -->|MISS| SR
     SR --> SG
     SG --> SV
-    SV -->|Peligroso| E3[Error: SQL no seguro]
+    SV -->|Peligroso| E3[Error 400]
     SV -->|OK| QX
-    QX -->|Error| SG
+    QX -->|Error SQL| SG
     QX -->|OK| RG
     RG --> SC
     RG --> SM
     SM --> CS
-    RG --> R[Respuesta al Usuario]
+    RG --> R[Respuesta]
 ```
 
 ---
 
-## Flujo Detallado Paso a Paso
+## Secuencia de Procesamiento
 
 ```mermaid
 sequenceDiagram
@@ -80,60 +93,144 @@ sequenceDiagram
     participant AMB as AmbiguityDetector
     participant CAC as Cache
     participant RAG as RAG Core
-    participant DB as PostgreSQL
-    participant LLM as Deepseek/OpenAI
+    participant DB as Database
+    participant LLM as LLM
 
-    U->>API: "dame ventas ayer"
+    U->>API: Query en lenguaje natural
     API->>SEC: RateLimiter.check(IP)
     SEC->>SEC: InputSanitizer.sanitize()
     SEC->>SEC: PromptGuard.check()
-    SEC->>ENH: Query limpia
+    SEC->>SEC: TopicDetector.check()
+    SEC->>ENH: Query validada
     
     ENH->>LLM: Mejorar query
-    LLM-->>ENH: "Muéstrame las ventas de ayer"
+    LLM-->>ENH: Query mejorada
     
-    ENH->>AMB: Query mejorada
-    AMB->>LLM: ¿Es ambigua?
-    LLM-->>AMB: No, es clara
+    ENH->>AMB: Query procesada
+    AMB->>LLM: Detectar ambigüedad
+    LLM-->>AMB: Resultado
     
-    AMB->>CAC: Buscar en cache
+    AMB->>CAC: Buscar en cache semántico
     CAC-->>AMB: MISS
     
-    AMB->>RAG: Procesar query
+    AMB->>RAG: Procesar
     RAG->>LLM: Seleccionar tablas
-    LLM-->>RAG: [ventas, productos]
+    LLM-->>RAG: Tablas relevantes
     
     RAG->>LLM: Generar SQL
-    LLM-->>RAG: SELECT * FROM ventas...
+    LLM-->>RAG: SQL generado
     
     RAG->>RAG: SQLValidator.validate()
     RAG->>DB: Ejecutar SQL
-    DB-->>RAG: Datos
+    DB-->>RAG: Resultados
     
     RAG->>LLM: Generar respuesta
-    LLM-->>RAG: "Las ventas de ayer fueron $5,000"
+    LLM-->>RAG: Respuesta natural
     
     RAG->>CAC: Guardar en cache
     RAG-->>U: Respuesta final
 ```
 
-## Uso de Tokens por Llamada LLM
+---
 
-```mermaid
-pie title Tokens por Componente
-    "QueryEnhancer" : 250
-    "SchemaRetriever" : 600
-    "SQLGenerator" : 1000
-    "ResponseGenerator" : 900
-```
+## Componentes y Uso de LLM
 
-| Componente | Input Tokens | Output Tokens | Total |
-|------------|-------------|---------------|-------|
+| Componente | Función | Usa LLM |
+|------------|---------|:-------:|
+| InputSanitizer | Limpia caracteres peligrosos | No |
+| PromptGuard | Detecta prompt injection | No |
+| TopicDetector | Verifica tema de DB | Sí |
+| QueryEnhancer | Mejora redacción | Sí |
+| AmbiguityDetector | Detecta ambigüedad | Sí |
+| ClarifyAgent | Genera opciones de clarificación | Sí |
+| SchemaRetriever | Selecciona tablas relevantes | Sí |
+| SQLGenerator | Genera SQL | Sí |
+| SQLValidator | Valida seguridad SQL | No |
+| QueryExecutor | Ejecuta en DB | No |
+| ResponseGenerator | Genera respuesta natural | Sí |
+
+---
+
+## Consumo de Tokens por Query
+
+| Componente | Input | Output | Total |
+|------------|------:|-------:|------:|
 | QueryEnhancer | ~200 | ~50 | 250 |
 | AmbiguityDetector | ~300 | ~50 | 350 |
 | SchemaRetriever | ~500 | ~100 | 600 |
 | SQLGenerator | ~800 | ~200 | 1000 |
 | ResponseGenerator | ~600 | ~300 | 900 |
-| **TOTAL por query** | **2400** | **700** | **~3100** |
+| **Total por query** | **2400** | **700** | **~3100** |
 
-**Costo estimado por query**: ~$0.001 USD (Deepseek)
+Costo estimado: ~$0.001 USD por query (Deepseek)
+
+---
+
+## Ejemplos de Uso
+
+### Health Check
+```bash
+curl http://localhost:8000/health
+```
+
+### Health Detallado
+```bash
+curl http://localhost:8000/health/detailed
+```
+
+### Información del Sistema
+```bash
+curl http://localhost:8000/info
+```
+
+### Ejecutar Consulta
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "¿Cuántos usuarios hay?"}'
+```
+
+### Consulta con Streaming
+```bash
+curl -X POST http://localhost:8000/query/stream \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Lista los productos más vendidos"}'
+```
+
+### Crear Sesión
+```bash
+curl -X POST http://localhost:8000/session
+```
+
+### Query con Contexto de Sesión
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "¿Y cuántos son activos?", "session_id": "abc123"}'
+```
+
+### Métricas JSON
+```bash
+curl http://localhost:8000/metrics
+```
+
+### Métricas Prometheus
+```bash
+curl http://localhost:8000/metrics/prometheus
+```
+
+---
+
+## Métricas Disponibles
+
+| Métrica | Tipo | Descripción |
+|---------|------|-------------|
+| `ragsql_requests_total` | Counter | Total de requests por endpoint |
+| `ragsql_queries_total` | Counter | Queries procesadas |
+| `ragsql_cache_hits_total` | Counter | Hits en cache semántico |
+| `ragsql_cache_misses_total` | Counter | Misses en cache |
+| `ragsql_security_blocks_total` | Counter | Bloqueos por seguridad |
+| `ragsql_pipeline_duration_avg_ms` | Gauge | Latencia promedio |
+| `ragsql_pipeline_duration_p95_ms` | Gauge | Latencia percentil 95 |
+| `ragsql_active_sessions` | Gauge | Sesiones activas |
+| `ragsql_tables_indexed` | Gauge | Tablas indexadas |

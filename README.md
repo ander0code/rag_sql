@@ -3,183 +3,208 @@
 Consultas en lenguaje natural a SQL usando Retrieval-Augmented Generation con Arquitectura Hexagonal.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)
 ![LangChain](https://img.shields.io/badge/LangChain-0.3+-orange.svg)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Soportado-blue.svg)
-![Redis](https://img.shields.io/badge/Redis-Opcional-red.svg)
-![Qdrant](https://img.shields.io/badge/Qdrant-Opcional-purple.svg)
+![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-## Descripcion
+**Bases de datos:**
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?logo=postgresql&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-4479A1?logo=mysql&logoColor=white)
+![SQLServer](https://img.shields.io/badge/SQL_Server-CC2927?logo=microsoft-sql-server&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)
 
-RAG-SQL convierte preguntas en lenguaje natural a consultas SQL usando LLMs. Descubre automaticamente el esquema de tu base de datos y genera queries optimizadas.
+**LLMs:**
+![OpenAI](https://img.shields.io/badge/OpenAI-412991?logo=openai&logoColor=white)
+![Anthropic](https://img.shields.io/badge/Claude-191919?logo=anthropic&logoColor=white)
+![Google](https://img.shields.io/badge/Gemini-4285F4?logo=google&logoColor=white)
 
-**Caracteristicas:**
-- Auto-descubrimiento de esquema de base de datos (tablas, columnas, relaciones, ENUMs)
-- Soporte multi-LLM (OpenAI, Deepseek)
-- Cache semantico con Qdrant
-- Gestion de sesiones con Redis
-- Proteccion contra SQL injection
-- Rate limiting
-- Arquitectura hexagonal para mantenibilidad
+## Descripción
+
+RAG-SQL convierte preguntas en lenguaje natural a consultas SQL usando LLMs. Descubre automáticamente el esquema de la base de datos y genera queries optimizadas.
+
+**Características principales:**
+- Auto-descubrimiento de esquema (tablas, columnas, relaciones, ENUMs)
+- Soporte multi-LLM (Deepseek, OpenAI, Claude, Groq, Gemini, Ollama)
+- Soporte multi-DB (PostgreSQL, MySQL, SQL Server, SQLite)
+- Streaming SSE para respuestas en tiempo real
+- Cache semántico con Qdrant
+- Gestión de sesiones conversacionales con Redis
+- Protección contra SQL injection y prompt injection
+- Rate limiting y auditoría
+- Arquitectura hexagonal
 
 ## Arquitectura
 
 ```
 rag_sql/
 ├── adapters/
-│   ├── inbound/         # CLI, FastAPI (entrada)
-│   ├── outbound/        # PostgreSQL, LLM, Redis, Qdrant (salida)
-│   └── factory.py       # Inyeccion de dependencias
+│   ├── inbound/              # CLI, FastAPI, Routes
+│   ├── outbound/             # Database, LLM, Cache
+│   └── factory.py            # Inyección de dependencias
 ├── core/
-│   ├── domain/          # Entidades
-│   ├── ports/           # Interfaces (ABC)
-│   └── services/        # Logica de negocio
-├── config/              # Configuracion
-└── utils/               # Logging, tokens
+│   ├── domain/               # Entidades, Errores, DTOs
+│   ├── ports/                # Interfaces (ABC)
+│   └── services/             # Pipeline, SQL, Schema, Security
+├── config/                   # Configuración centralizada
+├── utils/                    # Logging, Métricas
+└── tests/                    # Unitarios, Integración, Carga
 ```
+
+Ver documentación completa en [docs/architecture.md](docs/architecture.md)
 
 ## Requisitos
 
 - Python 3.10+
-- Base de datos PostgreSQL
-- API key de OpenAI o Deepseek
+- Base de datos (PostgreSQL, MySQL, SQL Server o SQLite)
+- API key de al menos un proveedor LLM
 - Redis (opcional, para sesiones)
-- Qdrant (opcional, para cache semantico)
+- Qdrant (opcional, para cache semántico)
 
-## Instalacion
+## Instalación
 
 ```bash
-# Clonar repositorio
 git clone https://github.com/yourusername/rag_sql.git
 cd rag_sql
 
-# Crear entorno virtual
 python -m venv .venv
 source .venv/bin/activate  # Linux/Mac
 # .venv\Scripts\activate   # Windows
 
-# Instalar dependencias
 pip install -r requirements.txt
 
-# Configurar variables de entorno
 cp .env.example .env
-# Editar .env con tus credenciales
+# Editar .env con credenciales
 ```
 
-## Configuracion
+## Configuración
 
-Copia `.env.example` a `.env` y configura:
+Variables requeridas en `.env`:
 
 ```bash
-# Requerido
-DATABASE_URL=postgresql://usuario:password@localhost:5432/nombre_db
-DEEPSEEK_API_KEY=sk-tu-key-aqui
-# o
-OPENAI_API_KEY=sk-tu-key-aqui
+# Proveedor LLM
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY=sk-tu-key
+
+# Base de datos
+DATABASE_URL=postgresql://user:pass@localhost:5432/database
 
 # Opcional
-REDIS_URL=redis://localhost:6379
 DEBUG=true
+REDIS_URL=redis://localhost:6379
+QDRANT_URL=http://localhost:6333
 ```
 
 ## Uso
 
-### 1. Escanear Base de Datos
-
-Antes de usar RAG-SQL, escanea tu base de datos para descubrir su estructura:
+### CLI
 
 ```bash
-PYTHONPATH=. python main.py --scan
+# Información de la base de datos
+python main.py --info
+
+# Escanear esquema
+python main.py --scan
+
+# Ejecutar consulta
+python main.py --query "¿Cuántos usuarios hay?"
+
+# Especificar schema
+python main.py --query "Ventas del mes" --schema public
 ```
 
-Esto crea `data/schemas/discovered_schemas.json` con la estructura de tu base de datos.
-
-### 2. Consultar via CLI
+### API
 
 ```bash
-# Ver informacion de la base de datos
-PYTHONPATH=. python main.py --info
-
-# Hacer una pregunta
-PYTHONPATH=. python main.py --query "Cuantos usuarios hay registrados?"
-
-# Especificar schema (si hay multiples)
-PYTHONPATH=. python main.py --query "Muestra las ventas" --schema public
+uvicorn adapters.inbound.api:app --reload --port 8000
 ```
 
-### 3. Iniciar Servidor API
+### Docker
 
 ```bash
-PYTHONPATH=. uvicorn adapters.inbound.api:app --reload --port 8000
+docker compose -f docker/docker-compose.dev.yml up
 ```
 
-**Endpoints:**
+## Endpoints
 
-| Metodo | Endpoint | Descripcion |
+| Método | Endpoint | Descripción |
 |--------|----------|-------------|
-| GET | `/` | Estado del servidor |
+| GET | `/` | Status |
 | GET | `/health` | Health check |
-| GET | `/info` | Info de la base de datos |
-| POST | `/query` | Ejecutar consulta en lenguaje natural |
-| POST | `/session` | Crear sesion |
-| POST | `/scan` | Re-escanear base de datos |
+| GET | `/health/detailed` | Health con métricas |
+| GET | `/info` | Info de la DB |
+| GET | `/metrics` | Métricas JSON |
+| GET | `/metrics/prometheus` | Métricas Prometheus |
+| POST | `/query` | Ejecutar consulta |
+| POST | `/query/stream` | Consulta con streaming |
+| POST | `/session` | Crear sesión |
+| DELETE | `/session/{id}` | Eliminar sesión |
+| POST | `/scan` | Re-escanear DB |
 
-**Ejemplo de consulta:**
+### Ejemplo
 
 ```bash
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
-  -d '{"query": "Cuantos productos hay?"}'
+  -d '{"query": "¿Cuántos productos hay?"}'
 ```
 
-## Flujo
+## Flujo de Procesamiento
 
 ```
-Query Usuario → Sanitizar → Mejorar → Verificar Ambiguedad → Buscar Cache
-      ↓                                                           ↓
-   Clarificar ← (si es ambiguo)                              (si hay cache)
-      ↓                                                           ↓
-Seleccionar Tablas → Generar SQL → Validar → Ejecutar → Generar Respuesta
-      ↓                                                           ↓
-Guardar en Cache ←──────────────────────────────────── Retornar Respuesta
+Query → Sanitizar → PromptGuard → TopicDetector → Enhancer
+                                                      ↓
+    Respuesta ← ResponseGenerator ← Executor ← SQLGenerator ← SchemaRetriever
+        ↓                              ↓
+   SemanticCache                   SQLValidator
 ```
+
+Ver diagrama completo en [docs/flujos_rag.md](docs/flujos_rag.md)
 
 ## Componentes
 
-| Componente | Proposito |
-|------------|-----------|
-| QueryEnhancer | Mejora la query del usuario para mayor claridad |
+| Componente | Función |
+|------------|---------|
+| QueryEnhancer | Mejora la query del usuario |
 | AmbiguityDetector | Detecta queries incompletas |
-| ClarifyAgent | Ofrece opciones de la base de datos |
+| ClarifyAgent | Genera opciones de clarificación |
 | TopicDetector | Rechaza queries fuera del dominio |
 | SchemaRetriever | Selecciona tablas relevantes |
 | SQLGenerator | Genera SQL via LLM |
 | SQLValidator | Valida seguridad del SQL |
-| OutputValidator | Sanitiza respuestas antes de retornar |
 | ResponseGenerator | Crea respuesta en lenguaje natural |
-| SemanticCache | Cache de queries similares (Qdrant) |
-| SessionManager | Gestiona historial de conversacion (Redis) |
+| SemanticCache | Cache de queries similares |
+| SessionManager | Gestiona historial conversacional |
 
 ## Seguridad
 
-- **Deteccion de SQL injection** - Bloquea DROP, DELETE, UPDATE, etc.
-- **Proteccion contra prompt injection** - Detecta "ignora instrucciones", "actua como", etc.
-- **Deteccion de tema** - Rechaza queries fuera del dominio (recetas, codigo, consejos)
-- **Validacion de output** - Sanitiza respuestas antes de retornar
-- **Bloqueo de columnas sensibles** - Nunca expone passwords, tokens, secrets
-- **Rate limiting** - 30 peticiones/minuto por IP
-- **Sanitizacion de input** - Limpia HTML, limita longitud
-- **Logging de auditoria** - Registra todas las queries y eventos de seguridad
+- Detección de SQL injection (bloquea DROP, DELETE, UPDATE)
+- Protección contra prompt injection
+- Validación de tema (solo consultas sobre DB)
+- Sanitización de output
+- Bloqueo de columnas sensibles (passwords, tokens)
+- Rate limiting (30 req/min por IP)
+- Sanitización de input
+- Logging de auditoría
 
-## Desarrollo
+## Tests
 
 ```bash
-# Ejecutar tests
-PYTHONPATH=. pytest tests/
+# Tests unitarios
+pytest tests/test_pipeline.py -v
 
-# Ejecutar con logs de debug
-DEBUG=true PYTHONPATH=. python main.py --query "test"
+# Tests de integración
+pytest tests/test_api.py -v
+
+# Tests de carga
+python tests/load_test.py
 ```
+
+## Documentación
+
+- [Arquitectura](docs/architecture.md)
+- [Flujos](docs/flujos_rag.md)
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
 
 ## Licencia
 

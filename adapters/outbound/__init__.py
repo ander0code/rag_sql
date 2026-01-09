@@ -1,1 +1,1 @@
-# Outbound Adapters - external services
+# Adaptadores de salida - servicios externos

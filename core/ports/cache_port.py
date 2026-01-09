@@ -1,5 +1,4 @@
 # Puerto de Cache
-# Define la interfaz que cualquier adaptador de cache debe implementar
 
 from abc import ABC, abstractmethod
 from typing import Optional, Any

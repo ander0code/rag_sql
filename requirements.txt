@@ -1,27 +1,46 @@
-# LangChain (para LLM)
+# ============================================
+# RAG-SQL - Dependencias
+# ============================================
+
+# ----- LangChain Core -----
 langchain>=0.3.0
+langchain-core>=0.3.0
 langchain-openai>=0.3.0
 
-# Base de datos
+# ----- Base de datos -----
 psycopg2-binary>=2.9.0
 
-# Configuración
+# ----- Configuración -----
+pydantic>=2.0.0
 pydantic-settings>=2.0.0
 python-dotenv>=1.0.0
 
-# Testing
-pytest>=7.0.0
-
-# API
+# ----- API REST -----
 fastapi>=0.100.0
-uvicorn>=0.20.0
+uvicorn[standard]>=0.20.0
 
-# Tokens
+# ----- Tokens y conteo -----
 tiktoken>=0.5.0
 
-# Cache
+# ----- Cache -----
 redis>=5.0.0
 
-# Semantic Cache
+# ----- Semantic Cache (Qdrant) -----
 qdrant-client>=1.7.0
 sentence-transformers>=2.2.0
+
+# ----- Testing -----
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+
+# ----- Utilidades -----
+aiohttp>=3.8.0
+
+# ============================================
+# Proveedores LLM Opcionales
+# (instalar según el proveedor que uses)
+# ============================================
+# pip install langchain-anthropic    # Para Claude
+# pip install langchain-groq         # Para Groq
+# pip install langchain-google-genai # Para Gemini
+# pip install langchain-ollama       # Para Ollama local

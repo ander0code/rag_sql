@@ -1,22 +1,23 @@
-# Factory - Crea el Pipeline con todas las dependencias inyectadas
+# Fábrica - Crea el Pipeline con todas las dependencias inyectadas
 
 from typing import Optional
 
 from config.settings import settings
-from adapters.outbound.llm.openai_deepseek import get_available_llm
+from adapters.outbound.llm.llm_factory import get_available_llm
 from adapters.outbound.database.postgresql import PostgreSQLAdapter
 from adapters.outbound.cache.redis_cache import get_redis_client
 from adapters.outbound.cache.qdrant_cache import get_semantic_cache
 
 from core.services.pipeline import Pipeline
-from core.services.sql_generator import SQLGenerator
-from core.services.sql_executor import QueryExecutor
-from core.services.response_generator import ResponseGenerator
-from core.services.query_rewriter import QueryRewriter
-from core.services.query_enhancer import QueryEnhancer
-from core.services.ambiguity_detector import AmbiguityDetector
-from core.services.clarify_agent import ClarifyAgent
-from core.services.context_summarizer import ContextSummarizer
+from core.services.sql import SQLGenerator, QueryExecutor
+from core.services.response import ResponseGenerator
+from core.services.query import (
+    QueryRewriter,
+    QueryEnhancer,
+    AmbiguityDetector,
+    ClarifyAgent,
+)
+from core.services.context import ContextSummarizer
 
 
 class DependencyContainer:
@@ -58,7 +59,7 @@ def create_pipeline(db_uri: Optional[str] = None, use_cache: bool = True) -> Pip
     """Factory function que crea el Pipeline con todas las dependencias."""
     container = DependencyContainer(db_uri)
 
-    executor = QueryExecutor(container.db)
+    executor = QueryExecutor(container.db_uri)
     sql_gen = SQLGenerator(container.llm)
     response_gen = ResponseGenerator(container.llm)
     query_rewriter = QueryRewriter(container.llm)
