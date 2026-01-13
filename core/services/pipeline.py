@@ -3,6 +3,7 @@
 import time
 import logging
 from typing import Optional, Tuple, Dict, Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from core.ports.llm_port import LLMPort
 from core.ports.semantic_cache_port import SemanticCachePort
@@ -45,6 +46,7 @@ class Pipeline:
         ambiguity_detector,  # AmbiguityDetector
         clarify_agent,  # ClarifyAgent
         context_summarizer,  # ContextSummarizer
+        query_decomposer,  # QueryDecomposer
         semantic_cache: SemanticCachePort,
         db_uri: str,
         use_cache: bool = True,
@@ -61,6 +63,7 @@ class Pipeline:
         self.ambiguity_detector = ambiguity_detector
         self.clarify_agent = clarify_agent
         self.context_summarizer = context_summarizer
+        self.query_decomposer = query_decomposer
         self.semantic_cache = semantic_cache
         self.db_uri = db_uri
 
@@ -121,6 +124,40 @@ class Pipeline:
             question, entity_type, options
         )
 
+    def _execute_single_query(self, query: str, schema: str) -> Optional[dict]:
+        """Ejecuta una sub-consulta individual y retorna el resultado."""
+        try:
+            relevant = self.retriever.get_relevant(query, target_schema=schema)
+            if not relevant:
+                logger.warning(f"No hay tablas relevantes para: {query}")
+                return None
+
+            result = None
+            last_error = None
+
+            for attempt in range(MAX_RETRIES):
+                sql = self.sql_gen.generate(
+                    query, relevant, schema, previous_error=last_error
+                )
+
+                if not is_safe_sql(sql):
+                    logger.warning(f"SQL no seguro para sub-query: {query}")
+                    return None
+
+                result = self.executor.execute(sql)
+
+                if "error" not in result:
+                    return result
+                else:
+                    last_error = result["error"]
+                    logger.warning(f"Sub-query retry {attempt + 1}: {last_error[:50]}")
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Error en sub-query: {e}")
+            return None
+
     def run(
         self,
         query: str,
@@ -144,7 +181,10 @@ class Pipeline:
         tokens_used = 0
 
         if not self.retriever or not self.retriever.schemas:
-            return "No tengo información sobre la base de datos. El administrador debe ejecutar el escaneo inicial.", None
+            return (
+                "No tengo información sobre la base de datos. El administrador debe ejecutar el escaneo inicial.",
+                None,
+            )
 
         # Resolver schema
         if not schema:
@@ -176,12 +216,67 @@ class Pipeline:
 
         logger.info(f"Query: '{query}'")
 
-        # 4. Recuperar tablas relevantes
+        # 4. Descomponer consulta si es compleja
+        is_multiple, sub_queries = self.query_decomposer.decompose(query)
+
+        if is_multiple and len(sub_queries) > 1:
+            # Ejecutar múltiples sub-consultas EN PARALELO
+            logger.info(f"Query descompuesta en {len(sub_queries)} partes")
+            all_results = []
+
+            # Usar ThreadPoolExecutor para ejecución paralela
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                futures = {
+                    executor.submit(self._execute_single_query, sq, schema): sq
+                    for sq in sub_queries
+                }
+
+                for future in as_completed(futures):
+                    sub_query = futures[future]
+                    try:
+                        sub_result = future.result()
+                        if sub_result:
+                            all_results.append(
+                                {"query": sub_query, "result": sub_result}
+                            )
+                            logger.info(f"Sub-query completada: {sub_query[:50]}...")
+                    except Exception as e:
+                        logger.error(f"Error en sub-query: {e}")
+
+            if all_results:
+                # Combinar resultados
+                combined_results = {
+                    "columns": [],
+                    "data": [],
+                    "sub_queries": all_results,
+                }
+                for r in all_results:
+                    if "columns" in r["result"]:
+                        combined_results["columns"].extend(
+                            r["result"].get("columns", [])
+                        )
+                        combined_results["data"].extend(r["result"].get("data", []))
+
+                response = self.response_gen.generate(original_query, combined_results)
+
+                total_time = time.time() - total_start
+                logger.info(f"Total (multi-query paralelo): {total_time:.1f}s")
+                return response, tokens_used
+            else:
+                return (
+                    "No pude obtener resultados para tu consulta compleja. Intenta simplificarla.",
+                    tokens_used,
+                )
+
+        # 5. Recuperar tablas relevantes (consulta simple)
         relevant = self.retriever.get_relevant(query, target_schema=schema)
         if not relevant:
-            return "No encontré tablas relacionadas con tu consulta. ¿Podrías reformularla o ser más específico?", None
+            return (
+                "No encontré tablas relacionadas con tu consulta. ¿Podrías reformularla o ser más específico?",
+                None,
+            )
 
-        # 5. Generar y ejecutar SQL con retry
+        # 6. Generar y ejecutar SQL con retry
         result = None
         last_error = None
         sql = None
@@ -192,7 +287,10 @@ class Pipeline:
             )
 
             if not is_safe_sql(sql):
-                return "Por seguridad, solo puedo realizar consultas de lectura. No es posible modificar, eliminar o alterar datos de la base de datos.", None
+                return (
+                    "Por seguridad, solo puedo realizar consultas de lectura. No es posible modificar, eliminar o alterar datos de la base de datos.",
+                    None,
+                )
 
             result = self.executor.execute(sql)
 
@@ -203,12 +301,15 @@ class Pipeline:
                 logger.warning(f"Retry {attempt + 1}: {last_error[:80]}")
 
                 if attempt == MAX_RETRIES - 1:
-                    return "Hubo un problema al consultar la base de datos. Por favor, intenta reformular tu pregunta.", tokens_used
+                    return (
+                        "Hubo un problema al consultar la base de datos. Por favor, intenta reformular tu pregunta.",
+                        tokens_used,
+                    )
 
-        # 6. Generar respuesta natural
+        # 7. Generar respuesta natural
         response = self.response_gen.generate(original_query, result)
 
-        # 7. Guardar en cache semántico
+        # 8. Guardar en cache semántico
         if self.semantic_cache.is_available():
             tables_used = [s["metadata"]["table_name"] for s in relevant]
             self.semantic_cache.save(query, sql, response, tables_used)
@@ -267,7 +368,10 @@ class Pipeline:
         tokens_used = 0
 
         if not self.retriever or not self.retriever.schemas:
-            return "No tengo información sobre la base de datos. El administrador debe ejecutar el escaneo inicial.", None
+            return (
+                "No tengo información sobre la base de datos. El administrador debe ejecutar el escaneo inicial.",
+                None,
+            )
 
         # Resolver schema
         if not schema:
@@ -302,7 +406,10 @@ class Pipeline:
         # 4. Recuperar tablas relevantes (async)
         relevant = await self.retriever.aget_relevant(query, target_schema=schema)
         if not relevant:
-            return "No encontré tablas relacionadas con tu consulta. ¿Podrías reformularla o ser más específico?", None
+            return (
+                "No encontré tablas relacionadas con tu consulta. ¿Podrías reformularla o ser más específico?",
+                None,
+            )
 
         # 5. Generar y ejecutar SQL con retry
         result = None
@@ -315,7 +422,10 @@ class Pipeline:
             )
 
             if not is_safe_sql(sql):
-                return "Por seguridad, solo puedo realizar consultas de lectura. No es posible modificar, eliminar o alterar datos de la base de datos.", None
+                return (
+                    "Por seguridad, solo puedo realizar consultas de lectura. No es posible modificar, eliminar o alterar datos de la base de datos.",
+                    None,
+                )
 
             result = self.executor.execute(sql)
 
@@ -326,7 +436,10 @@ class Pipeline:
                 logger.warning(f"Retry {attempt + 1}: {last_error[:80]}")
 
                 if attempt == MAX_RETRIES - 1:
-                    return "Hubo un problema al consultar la base de datos. Por favor, intenta reformular tu pregunta.", tokens_used
+                    return (
+                        "Hubo un problema al consultar la base de datos. Por favor, intenta reformular tu pregunta.",
+                        tokens_used,
+                    )
 
         # 6. Generar respuesta natural (async)
         response = await self.response_gen.agenerate(original_query, result)

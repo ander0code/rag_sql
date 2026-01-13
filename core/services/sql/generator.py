@@ -6,38 +6,37 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 logger = logging.getLogger(__name__)
 
-SQL_SYSTEM = """Eres experto en PostgreSQL. Genera consultas SQL válidas y eficientes.
+SQL_SYSTEM = """Eres un generador de SQL. Tu respuesta debe ser ÚNICAMENTE código SQL.
 
-REGLAS CRÍTICAS:
-1. Usa prefijos de schema: "schema"."tabla"
-2. SOLO SELECT (consultas de lectura)
-3. NO mezcles funciones de agregación (COUNT, SUM, AVG) con columnas sin GROUP BY
-4. SIEMPRE incluye LIMIT (máximo 100)
-5. Usa alias claros para JOINs (ej: t1, t2 o nombres descriptivos)
-6. Prefiere ILIKE para búsquedas de texto (case-insensitive)
-7. Para fechas usa: date_column >= CURRENT_DATE - INTERVAL 'N days'
+CRÍTICO - FORMATO DE RESPUESTA:
+- SOLO código SQL, NADA más
+- SIN texto explicativo
+- SIN markdown (no uses ```)
+- SIN comentarios
+- La respuesta debe EMPEZAR con SELECT
 
-PATRONES COMUNES:
-- Contar: SELECT COUNT(*) FROM "schema"."tabla"
-- Listar: SELECT col1, col2 FROM "schema"."tabla" LIMIT 20
-- Filtrar texto: WHERE col ILIKE '%valor%'
-- Agrupar: SELECT col, COUNT(*) FROM tabla GROUP BY col
-- Top N: SELECT col, COUNT(*) as total FROM tabla GROUP BY col ORDER BY total DESC LIMIT 10
+REGLAS SQL:
+1. SOLO SELECT (nunca INSERT, UPDATE, DELETE)
+2. Usa schema: "public"."tabla"
+3. SIEMPRE incluye LIMIT (máximo 100)
+4. NO uses LATERAL ni subconsultas complejas
 
-ERRORES A EVITAR:
-- ❌ SELECT nombre, COUNT(*) FROM tabla (falta GROUP BY)
-- ❌ SELECT * sin LIMIT
-- ❌ Usar = para texto (usar ILIKE)
-- ❌ Olvidar comillas en nombres de schema/tabla
-- ❌ JOINs sin ON clause"""
+PATRONES VÁLIDOS:
+SELECT col1, col2 FROM "public"."tabla" LIMIT 20
+SELECT COUNT(*) FROM "public"."tabla"
+SELECT t1.col, t2.col FROM "public"."t1" JOIN "public"."t2" ON t1.id = t2.t1_id LIMIT 20
+SELECT col, COUNT(*) as total FROM "public"."t" GROUP BY col ORDER BY total DESC LIMIT 10
 
-SQL_USER = """TABLAS DISPONIBLES:
-{tables}
+PROHIBIDO:
+- LATERAL JOIN
+- LIMIT dentro de ARRAY_AGG
+- Texto antes o después del SQL"""
 
-CONSULTA DEL USUARIO: {query}
+SQL_USER = """TABLAS: {tables}
 SCHEMA: {schema}
+PREGUNTA: {query}
 
-Genera el SQL:"""
+Responde SOLO con el SELECT:"""
 
 SQL_RETRY = """El SQL anterior produjo este error:
 {error}
@@ -115,26 +114,32 @@ class SQLGenerator:
         return tables_info
 
     def _clean(self, raw: str, schemas: list, target_schema: str) -> str:
-        sql = raw
+        sql = raw.strip()
 
-        # Extraer SQL de markdown
+        # Extraer SQL de markdown ```sql ... ```
         if "```" in raw:
             lines = []
             in_block = False
             for line in raw.split("\n"):
-                if line.startswith("```sql") or line.startswith("```SQL"):
+                if line.strip().lower().startswith("```sql"):
                     in_block = True
-                elif line.startswith("```"):
+                elif line.strip().startswith("```"):
                     in_block = False
                 elif in_block:
                     lines.append(line)
             if lines:
-                sql = " ".join(lines)
+                sql = " ".join(lines).strip()
 
-        if not sql.strip() or "SELECT" not in sql.upper():
-            start = raw.upper().find("SELECT")
-            if start != -1:
-                sql = raw[start:]
+        # Si no empieza con SELECT, buscar SELECT en el texto
+        if not sql.upper().strip().startswith("SELECT"):
+            # Buscar el primer SELECT en el texto
+            match = re.search(r"\bSELECT\b", sql, re.IGNORECASE)
+            if match:
+                sql = sql[match.start() :]
+            else:
+                # No hay SELECT, retornar vacío para que falle la validación
+                logger.warning(f"No se encontró SELECT en: {raw[:100]}...")
+                return ""
 
         # Mapa de tablas con sus schemas
         table_schema_map = {

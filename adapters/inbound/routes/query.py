@@ -17,15 +17,16 @@ router = APIRouter(prefix="/query", tags=["Query"])
 
 # Modelos de transferencia de datos
 class QueryRequest(BaseModel):
-    query: str = Field(..., min_length=1, max_length=1000, description="Consulta en lenguaje natural")
+    query: str = Field(
+        ..., min_length=1, max_length=1000, description="Consulta en lenguaje natural"
+    )
     target_schema: Optional[str] = Field(
-        None, 
+        None,
         alias="schema",
-        description="Schema específico (opcional, solo si hay múltiples schemas)"
+        description="Schema específico (opcional, solo si hay múltiples schemas)",
     )
     session_id: Optional[str] = Field(
-        None,
-        description="ID de sesión para contexto conversacional"
+        None, description="ID de sesión para contexto conversacional"
     )
 
 
@@ -33,6 +34,7 @@ class QueryResponse(BaseModel):
     response: Optional[str] = None
     tokens: Optional[int] = None
     cached: bool = False
+    duration_ms: Optional[float] = None
     error: Optional[str] = None
 
 
@@ -120,7 +122,9 @@ async def query(
             session_manager.add_message(request.session_id, "user", clean_query)
             session_manager.add_message(request.session_id, "assistant", response)
 
-        return QueryResponse(response=response, tokens=tokens)
+        return QueryResponse(
+            response=response, tokens=tokens, duration_ms=round(duration_ms, 1)
+        )
 
     except Exception as e:
         duration_ms = (time.time() - start_time) * 1000

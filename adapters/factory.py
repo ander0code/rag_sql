@@ -16,6 +16,7 @@ from core.services.query import (
     QueryEnhancer,
     AmbiguityDetector,
     ClarifyAgent,
+    QueryDecomposer,
 )
 from core.services.context import ContextSummarizer
 
@@ -67,6 +68,7 @@ def create_pipeline(db_uri: Optional[str] = None, use_cache: bool = True) -> Pip
     ambiguity_detector = AmbiguityDetector(container.llm)
     clarify_agent = ClarifyAgent(executor)
     context_summarizer = ContextSummarizer(container.llm)
+    query_decomposer = QueryDecomposer(container.llm)
 
     return Pipeline(
         llm=container.llm,
@@ -78,6 +80,7 @@ def create_pipeline(db_uri: Optional[str] = None, use_cache: bool = True) -> Pip
         ambiguity_detector=ambiguity_detector,
         clarify_agent=clarify_agent,
         context_summarizer=context_summarizer,
+        query_decomposer=query_decomposer,
         semantic_cache=container.semantic_cache,
         db_uri=container.db_uri,
         use_cache=use_cache,

@@ -7,14 +7,23 @@ logger = logging.getLogger(__name__)
 
 REWRITE_PROMPT = """Eres experto en reformular preguntas para consultas de base de datos.
 
-REGLAS:
-1. Si la pregunta pide dos cosas incompatibles (contar Y listar), elige la más específica
-2. Simplifica manteniendo la intención original
-3. Corrige errores ortográficos si los hay
-4. Mantén el idioma original del usuario
-5. Si la pregunta ya es clara, devuélvela igual
+TU TAREA: Mejorar la redacción de la consulta manteniendo TODA la intención original.
 
-Responde SOLO con la pregunta reformulada, sin explicaciones."""
+REGLAS:
+1. NO elimines información ni simplifiques la consulta
+2. Corrige errores ortográficos y gramaticales
+3. Hazla más clara y estructurada
+4. Mantén todos los filtros, cantidades y relaciones mencionadas
+5. Si la consulta ya es clara, devuélvela igual
+
+EJEMPLOS:
+- "dame 10 empresas con mas ventas y sus productos top"
+  → "Lista las 10 empresas con más ventas junto con sus productos más vendidos"
+  
+- "usuarios activos ultimo mes con compras"
+  → "Muestra los usuarios activos del último mes que tienen compras"
+
+Responde SOLO con la consulta reformulada, sin explicaciones."""
 
 
 # Reescribe queries para mejorar la generación de SQL
